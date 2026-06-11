@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
 <meta name="theme-color" content="#16140F">
-<title>MO · 数据看板</title>
+<title>MO · 试衣运营看板</title>
 <style>
   :root{
     --bg:#F3F1EC; --surface:#FFFFFF; --surface-2:#FAF8F3;
@@ -107,8 +107,8 @@
     <div class="brand">
       <div class="logo">MO</div>
       <div>
-        <div class="eyebrow">Atelier · Insights</div>
-        <h1 style="margin-top:5px;">数据看板</h1>
+        <div class="eyebrow">Atelier · Operations</div>
+        <h1 style="margin-top:5px;">试衣运营</h1>
       </div>
     </div>
     <div class="conn" id="conn"><span class="dot off"></span><span id="connT">连接中</span></div>
@@ -260,7 +260,7 @@ function render(){
   h+=`</div></section>`;
 
   h+=`<div class="note">数据来源于试衣/配货明细。「成交额」由有赞结算,本看板只反映店内试衣热度与配货效率。</div>`;
-  h+=`<div class="foot reveal"><a href="./guide.html">导购台</a><a href="./index.html">配货台</a></div>`;
+  h+=`<div class="foot reveal"><a href="./%E8%80%81%E6%9D%BF%E7%9C%8B%E6%9D%BF-H5%E9%A2%84%E8%A7%88.html" style="background:var(--ink);color:#fff;border-color:var(--ink)">成交转化看板 &rarr;</a></div><div class="foot reveal" style="margin-top:10px"><a href="./guide.html">导购台</a><a href="./index.html">配货台</a><a href="./reposition.html">归位台</a></div>`;
 
   document.getElementById('app').innerHTML=h;
   // 数字滚动

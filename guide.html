@@ -89,6 +89,23 @@
   .stat{display:inline-flex;align-items:center;height:18px;padding:0 7px;border-radius:2px;font-size:10px;font-weight:700;letter-spacing:.06em;}
   .stat-todo{color:var(--todo);background:var(--todo-bg);}
   .stat-done{color:var(--done);background:var(--done-bg);}
+  .stat-hand{color:#4A5A6B;background:#E8EDF1;}
+  .srcpick{position:absolute;inset:0;z-index:60;background:rgba(15,13,10,.46);display:none;align-items:flex-end;justify-content:center;}
+  .srcpick.show{display:flex;}
+  .srcpick-card{width:100%;max-width:440px;background:var(--surface);border-radius:8px 8px 0 0;padding:8px 18px calc(20px + env(safe-area-inset-bottom));animation:appIn .26s cubic-bezier(.2,.7,.3,1) both;}
+  .sp-grip{width:36px;height:4px;border-radius:99px;background:var(--line-2);margin:8px auto 14px;}
+  .sp-title{font-size:13px;font-weight:600;color:var(--ink-2);letter-spacing:.02em;text-align:center;margin-bottom:14px;}
+  .sp-opt{width:100%;display:flex;align-items:center;gap:13px;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:4px;padding:15px 15px;margin-bottom:11px;cursor:pointer;font-family:inherit;}
+  .sp-opt:active{transform:scale(.99);}
+  .sp-ic{width:42px;height:42px;flex:0 0 auto;border-radius:3px;display:grid;place-items:center;font-size:17px;font-weight:700;color:#fff;}
+  .sp-opt.cang .sp-ic{background:var(--todo);}
+  .sp-opt.hand .sp-ic{background:#4A5A6B;}
+  .sp-tx{display:flex;flex-direction:column;gap:3px;}
+  .sp-tx b{font-size:16px;font-weight:600;letter-spacing:-.01em;}
+  .sp-tx i{font-size:11.5px;color:var(--ink-3);font-style:normal;}
+  .sp-cancel{width:100%;height:44px;border:none;background:var(--surface-2);border-radius:3px;color:var(--ink-2);font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;margin-top:3px;}
+  .srcBtn{height:30px;padding:0 11px;border-radius:99px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.1);color:#fff;font-size:11.5px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;}
+  .cf-opt.src{font-size:12.5px;letter-spacing:-.01em;}
   .stat-oos{color:#fff;background:var(--bad);letter-spacing:.04em;animation:oosPulse 1.3s ease-in-out infinite;box-shadow:0 2px 8px -2px rgba(142,59,54,.5);}
   @keyframes oosPulse{0%,100%{opacity:1;}50%{opacity:.5;}}
   .citem.oos{background:linear-gradient(90deg,var(--bad-bg),#FFF 72%);border-color:#E2C2BD;box-shadow:inset 3px 0 0 var(--bad);}
@@ -227,6 +244,10 @@
   .co-foot{flex:0 0 auto;padding:14px 18px calc(14px + env(safe-area-inset-bottom));background:var(--surface);border-top:1px solid var(--line);}
   .co-done{width:100%;height:50px;border:none;border-radius:3px;background:var(--ink);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;letter-spacing:.01em;}
   .co-done:disabled{opacity:.35;}
+  .src-tag{font-size:10px;font-weight:700;letter-spacing:.04em;color:var(--ink-2);background:var(--line-2);border-radius:2px;padding:2px 6px;}
+  .src-tag.hand{color:#4A5A6B;background:#E8EDF1;}
+  .co-note{margin-top:9px;font-size:11px;color:var(--ink-2);line-height:1.5;background:var(--surface-2);border-radius:2px;padding:7px 9px;}
+  .co-note b{color:var(--ink);}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
   @media (prefers-reduced-motion:reduce){.sheet,.scrim,.skel::after,.confirm{transition:none;animation:none;}}
 </style>
@@ -251,17 +272,31 @@
 
   <div class="addbar">
     <div class="sum"><div class="n" id="sumN">0</div><div class="l">件 · 当前车</div></div>
-    <button class="scan" id="scanBtn" onclick="openScan()">
+    <button class="scan" id="scanBtn" onclick="openSrcPick()">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="12" rx="1" stroke="currentColor" stroke-width="1.6"/><path d="M7 6v12M11 6v12M15 6v12M18 6v12" stroke="currentColor" stroke-width="1.3"/></svg>
       扫码加货
     </button>
   </div>
   <div class="toast" id="toast"></div>
 
+  <!-- 取货来源选择 -->
+  <div class="srcpick" id="srcPick" onclick="if(event.target===this)closeSrcPick()">
+    <div class="srcpick-card">
+      <div class="sp-grip"></div>
+      <div class="sp-title">本次取货来源</div>
+      <button class="sp-opt cang" onclick="startScan('小仓')">
+        <span class="sp-ic">仓</span><span class="sp-tx"><b>小仓</b><i>按款配货 · 扫码后选颜色尺码 · 派配货台</i></span></button>
+      <button class="sp-opt hand" onclick="startScan('陈列仓')">
+        <span class="sp-ic">陈</span><span class="sp-tx"><b>陈列仓</b><i>样衣在手 · 扫吊牌秒加 · 不派配货台</i></span></button>
+      <button class="sp-cancel" onclick="closeSrcPick()">取消</button>
+    </div>
+  </div>
+
   <!-- 扫码层 -->
   <div class="scanlayer" id="scanLayer">
     <div class="scan-top">
       <div class="stitle" id="scanTitle"></div>
+      <button class="srcBtn" id="srcBtn" onclick="toggleScanSrc()"></button>
       <div class="cnt" id="scanCnt">+0</div>
       <button class="scan-close" id="torchBtn" onclick="toggleTorch()" title="补光"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M13 2L4.5 13H11l-1 9 8.5-12H12l1-8z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
       <button class="scan-close" onclick="closeScan()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
@@ -325,7 +360,7 @@ const SLOTS_DEFAULT=['客户1','客户2'];
 const SCAN_CDN='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';
 const SIZE_ORDER=['XS','S','M','L','L/40','XL','2XL','3XL','F'];
 
-const FIELD={ id:'明细ID', customer:'客户', guide:'导购', guidePerson:'导购员', status:'状态', picker:'捡货员', archive:'试衣完成', oos:'缺货', bought:'已购买', returned:'已归位',
+const FIELD={ id:'明细ID', customer:'客户', guide:'导购', guidePerson:'导购员', status:'状态', picker:'捡货员', archive:'试衣完成', oos:'缺货', bought:'已购买', returned:'已归位', source:'取货来源',
   styleCode:'识别款式编码', name:'商品名称', scanCode:'扫码商品编码', color:'颜色',
   finalCode:'最终商品编码', spec:'规格', barcode:'条形码', qty:'数量' };
 const PFIELD={ name:'商品名称', code:'商品编码', style:'款式编码', color:'颜色', spec:'规格' };
@@ -376,7 +411,7 @@ function normalize(items){
   return items.map(it=>{
     const f=it.fields||{},g=k=>f[FIELD[k]],r={_id:it.recordId,_raw:f};
     for(const k in FIELD)r[k]=cell(g(k));
-    r.qtyN=num(g('qty'))||1; r.todo=r.status!==ST_DONE; r.archived=(r.archive===true||r.archive==='true'); r.outStock=(r.oos===true||r.oos==='true'); r.bought=(r.bought===true||r.bought==='true'); r.returned=(r.returned===true||r.returned==='true'); return r;
+    r.qtyN=num(g('qty'))||1; r.todo=r.status!==ST_DONE; r.archived=(r.archive===true||r.archive==='true'); r.outStock=(r.oos===true||r.oos==='true'); r.bought=(r.bought===true||r.bought==='true'); r.returned=(r.returned===true||r.returned==='true'); r.source=cell(g('source'))||'小仓'; r.inHand=(r.source==='陈列仓'); return r;
   });
 }
 async function refresh(){
@@ -455,7 +490,7 @@ function coSetBought(id,val){ const s=coState[id]; if(!s)return; s.bought=val; i
 function coReturnManual(id){ if(coState[id]){coState[id].returned=true; renderCheckout();} }
 function coScanReturn(id){ openReturnScan(id); }
 function markReturned(id){ if(coState[id])coState[id].returned=true; }
-function coResolved(r){ const s=coState[r._id]; return s && (s.bought===true || (s.bought===false && s.returned===true)); }
+function coResolved(r){ const s=coState[r._id]; return s && s.bought!==null; }
 function renderCheckout(){
   const items=allOf(slot);
   let buy=0, tot=0;
@@ -463,38 +498,37 @@ function renderCheckout(){
   const rate=tot?Math.round(buy/tot*100):0;
   document.getElementById('coStat').innerHTML=`<div><div class="big">${buy}/${tot}</div><div class="lb">已购买 / 试衣件数</div></div><div class="rate"><div class="big">${rate}%</div><div class="lb">转化率</div></div>`;
   document.getElementById('coList').innerHTML=items.map(r=>{
-    const s=coState[r._id]||{bought:null,returned:false};
+    const s=coState[r._id]||{bought:null};
     const cls=s.bought===true?'buy':(s.bought===false?'ret':'');
-    let ret='';
-    if(s.bought===false){
-      ret=`<div class="co-ret"><span class="tip ${s.returned?'ok':''}">${s.returned?'✓ 已归位回流小仓':'未购买 · 需归位'}</span>`+
-        (s.returned?'':`<button class="scan" onclick='coScanReturn("${r._id}")'>扫码归位</button><button onclick='coReturnManual("${r._id}")'>已归位</button>`)+`</div>`;
-    }
+    const srcTag=r.inHand?`<span class="src-tag hand">陈列</span>`:`<span class="src-tag">小仓</span>`;
+    let note='';
+    if(s.bought===false) note=`<div class="co-note">未购买 → 自动进<b>归位台</b>${r.inHand?'（样衣回陈列架）':'（回小仓）'}</div>`;
+    else if(s.bought===true&&r.inHand) note=`<div class="co-note">成交记一笔；实物从小仓出新货，样衣进<b>归位台</b>回陈列架</div>`;
     return `<div class="co-item ${cls}">
       <div class="co-i-nm">${r.name||'未匹配'}</div>
-      <div class="co-i-sub">${r.color?`<span class="swatch" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${colorHex(r.color)};box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)"></span>${r.color}`:''} ${r.spec||''} <span class="skucode">${r.finalCode||'断码'}</span>${r.qtyN>1?' · ×'+r.qtyN:''}</div>
+      <div class="co-i-sub">${srcTag}${r.color?`<span class="swatch" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${colorHex(r.color)};box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)"></span>${r.color}`:''} ${r.spec||''} <span class="skucode">${r.finalCode||'断码'}</span>${r.qtyN>1?' · ×'+r.qtyN:''}</div>
       <div class="co-acts">
         <button class="co-btn buy ${s.bought===true?'on':''}" onclick='coSetBought("${r._id}",true)'>✓ 已购买</button>
         <button class="co-btn no ${s.bought===false?'on':''}" onclick='coSetBought("${r._id}",false)'>未购买</button>
-      </div>${ret}
+      </div>${note}
     </div>`;
   }).join('');
   const allOK=items.every(coResolved);
   const left=items.filter(r=>!coResolved(r)).length;
   const b=document.getElementById('coDone');
-  b.disabled=!allOK; b.textContent=allOK?`确认结束 · 归档（买 ${buy}/${tot}）`:`还有 ${left} 件未处理`;
+  b.disabled=!allOK; b.textContent=allOK?`确认结束 · 归档（买 ${buy}/${tot}）`:`还有 ${left} 件未标记`;
 }
 async function commitCheckout(){
   const items=allOf(slot);
-  if(!items.every(coResolved)){toast('还有未处理的件');return;}
+  if(!items.every(coResolved)){toast('还有未标记的件');return;}
   const done=slot;
-  const ups=items.map(r=>{ const s=coState[r._id]; return {r, fields:{[FIELD.bought]:s.bought===true,[FIELD.returned]:(s.bought===false?!!s.returned:false),[FIELD.archive]:true}}; });
-  ups.forEach(u=>{ u.r.bought=u.fields[FIELD.bought]; u.r.returned=u.fields[FIELD.returned]; u.r.archived=true; });   // 乐观
+  const ups=items.map(r=>{ const s=coState[r._id]; return {r, fields:{[FIELD.bought]:s.bought===true,[FIELD.archive]:true}}; });
+  ups.forEach(u=>{ u.r.bought=u.fields[FIELD.bought]; u.r.archived=true; });   // 乐观；未购买/陈列样衣的归位由归位台处理
   closeCheckout();
   extraSlots=extraSlots.filter(x=>x!==done);
   slot=slots().find(s=>activeOf(s).length===0)||'客户1';
   coState={};
-  toast(done+' 已结束 · 已存档'); render();
+  toast(done+' 已结束 · 未归位项已派归位台'); render();
   if(!LIVE)return;
   const real=ups.filter(u=>!String(u.r._id).startsWith('tmp'));
   Promise.all(real.map(u=>post({action:'update',recordId:u.r._id,fields:u.fields})))
@@ -536,8 +570,9 @@ function render(){
 }
 function citem(r){
   const noFinal=!r.finalCode;
-  const stat=r.todo?`<span class="stat stat-todo">待配货</span>`
-                   :`<span class="stat stat-done">已配完${r.picker?' · '+r.picker:''}</span>`;
+  const stat=r.inHand?`<span class="stat stat-hand">陈列 · 在手</span>`
+                   :(r.todo?`<span class="stat stat-todo">待配货</span>`
+                   :`<span class="stat stat-done">已配完${r.picker?' · '+r.picker:''}</span>`);
   const oosTag=r.outStock?`<span class="stat stat-oos">缺货 · 没货了</span>`:'';
   const right=r.todo
     ? `<div class="stepper"><button onclick='stepItem("${r._id}",-1)'>−</button><span id="q_${r._id}">${r.qtyN}</span><button onclick='stepItem("${r._id}",1)'>+</button></div>
@@ -554,9 +589,20 @@ function citem(r){
 
 /* 扫码 */
 let h5q=null, scanning=false, lastCode='', lastT=0, addedCount=0, actx=null, paused=false;
+let scanMode='小仓';   // 本轮取货来源
 function loadScanLib(){return new Promise(res=>{ if(window.Html5Qrcode)return res(true); const s=document.createElement('script');s.src=SCAN_CDN;s.onload=()=>res(true);s.onerror=()=>res(false);document.head.appendChild(s);});}
 function beep(){ try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); const o=actx.createOscillator(),g=actx.createGain(); o.type='sine';o.frequency.value=920;o.connect(g);g.connect(actx.destination); const t=actx.currentTime; g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.22,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+.12); o.start(t);o.stop(t+.13);}catch(e){} if(navigator.vibrate)navigator.vibrate(28); }
-function updateScanTop(){ document.getElementById('scanTitle').innerHTML=`为 ${av(slot)}${slot} 扫码`; document.getElementById('scanCnt').textContent=`+${addedCount}`; }
+function updateScanTop(){
+  const m=scanMode==='陈列仓'?'陈列仓 · 扫吊牌秒加':'小仓 · 扫款选色码';
+  document.getElementById('scanTitle').innerHTML=`为 ${av(slot)}${slot} <span style="opacity:.7;font-size:12px">· ${m}</span>`;
+  document.getElementById('scanCnt').textContent=`+${addedCount}`;
+  const sb=document.getElementById('srcBtn'); if(sb)sb.textContent='切来源 · '+scanMode;
+}
+/* 取货来源选择 */
+function openSrcPick(){ document.getElementById('srcPick').classList.add('show'); }
+function closeSrcPick(){ document.getElementById('srcPick').classList.remove('show'); }
+function startScan(src){ scanMode=src; closeSrcPick(); openScan(); }
+function toggleScanSrc(){ scanMode=scanMode==='陈列仓'?'小仓':'陈列仓'; updateScanTop(); toast('已切到 '+scanMode); }
 
 async function openScan(){
   addedCount=0; lastCode=''; paused=false; torchOn=false; updateScanTop();
@@ -589,7 +635,37 @@ function onDecode(text){
   const now=Date.now(); if(text===lastCode && now-lastT<1500)return;
   lastCode=text; lastT=now; beep();
   if(returnScanMode){ markReturned(scanReturnId); closeScan(); return; }   // 归位:扫一下即归位
+  if(scanMode==='陈列仓'){ quickAddDisplay(text); return; }   // 陈列仓:所见即所得，秒加
   openConfirm(text);
+}
+/* 陈列仓秒加：扫出的完整编码=最终编码，库里有就带名/色/码，没有也照加 */
+function quickAddDisplay(rawcode){
+  if(!OP){ setOperator(); if(!OP){ toast('请先设置你的名字再下单'); return; } }
+  const code=String(rawcode||'').trim(); if(!code)return;
+  const info=IDX.byCode[code]||null;
+  const name=(info&&info.name)||'', color=(info&&info.color)||'', size=(info&&info.size)||'';
+  let style=(info&&info.style)||''; if(!style){ const rg=recognize(code); if(rg)style=rg.style; }
+  const curSlot=slot;
+  if(size)lastSize[slot]=size;
+  const ex=RAW.find(r=>r.customer===curSlot && !r.archived && r.source==='陈列仓' && r.finalCode===code);
+  if(ex){ ex.qtyN+=1; addedCount+=1; updateScanTop(); toast('✓ 陈列 +1 · '+(name||code)); syncQty(ex); return; }
+  const fields={[FIELD.customer]:curSlot,[FIELD.status]:ST_DONE,[FIELD.qty]:1,[FIELD.source]:'陈列仓',
+    [FIELD.scanCode]:code,[FIELD.barcode]:code,[FIELD.finalCode]:code,[FIELD.styleCode]:style,
+    [FIELD.name]:name,[FIELD.color]:color,[FIELD.spec]:size};
+  if(OP)fields[FIELD.guidePerson]=OP;
+  const tmpId='tmp'+Date.now()+Math.floor(Math.random()*9999);
+  const rec=normalize([{recordId:tmpId,fields:{...fields,[FIELD.guide]:[{name:meName()}]}}])[0];
+  rec._pending=true; rec._sentQty=1; RAW.unshift(rec);
+  addedCount+=1; updateScanTop(); toast('✓ 陈列 · '+(name||code));
+  if(!LIVE){ rec._pending=false; return; }
+  post({action:'create',fields}).then(j=>{
+    rec._id=j.record.record_id; rec._pending=false;
+    if(rec._canceled){ post({action:'delete',recordId:rec._id}).catch(()=>{}); return; }
+    if(rec.qtyN!==rec._sentQty) syncQty(rec);
+  }).catch(e=>{
+    const i=RAW.indexOf(rec); if(i>=0)RAW.splice(i,1);
+    addedCount=Math.max(0,addedCount-1); updateScanTop(); toast('未能同步，已撤回');
+  });
 }
 async function closeScan(){
   if(h5q&&scanning){ try{await h5q.stop();}catch(e){} try{h5q.clear();}catch(e){} }
@@ -609,16 +685,16 @@ function toggleManual(){
   if(m.classList.contains('show')){ m.classList.remove('show'); document.getElementById('scanView').style.display=''; }
   else manualMode('手动 / 扫码枪录入');
 }
-function manualSubmit(){ const v=document.getElementById('manualInput').value.trim(); if(!v)return; openConfirm(v); document.getElementById('manualInput').value=''; }
+function manualSubmit(){ const v=document.getElementById('manualInput').value.trim(); if(!v)return; if(scanMode==='陈列仓')quickAddDisplay(v); else openConfirm(v); document.getElementById('manualInput').value=''; }
 document.getElementById('manualInput').addEventListener('keydown',e=>{ if(e.key==='Enter')manualSubmit(); });
 
 /* 确认卡：颜色/尺码映射 → 最终商品编码 */
-let cf={scan:'',style:'',name:'',color:'',size:'',qty:1,final:''};
+let cf={scan:'',style:'',name:'',color:'',size:'',qty:1,final:'',source:'小仓'};
 function openConfirm(scan){
   const r=recognize(scan);
   if(!r){ toast('未在商品库匹配到：'+scan); return; }
   const st=IDX.styleMap[r.style];
-  cf={scan:String(scan).trim(), style:r.style, name:(st&&st.name)||r.name||'', color:'', size:'', qty:1, final:''};
+  cf={scan:String(scan).trim(), style:r.style, name:(st&&st.name)||r.name||'', color:'', size:'', qty:1, final:'', source:scanMode};
   cf.color = (r.color && st.colors.includes(r.color)) ? r.color : st.colors[0]||'';
   const sizes=sortSizes(st.sizesByColor[cf.color]||[]);
   const pref=lastSize[slot];
@@ -647,22 +723,24 @@ function renderConfirm(){
 }
 function cfPickColor(c){ cf.color=c; const sizes=sortSizes(IDX.styleMap[cf.style].sizesByColor[c]||[]); if(!sizes.includes(cf.size))cf.size=(lastSize[slot]&&sizes.includes(lastSize[slot]))?lastSize[slot]:(sizes[0]||''); renderConfirm(); }
 function cfPickSize(s){ cf.size=s; renderConfirm(); }
+function cfPickSource(s){ cf.source=s; renderConfirm(); }
 function cfQtyStep(d){ cf.qty=Math.max(1,cf.qty+d); document.getElementById('cfQty').textContent=cf.qty; }
 function confirmCancel(){ document.getElementById('confirmCard').classList.remove('show'); paused=false; lastCode=''; }
 
 function confirmAdd(){
   if(!OP){ setOperator(); if(!OP){ toast('请先设置你的名字再下单'); return; } }
   const final=cf.final||'';
-  const qty=cf.qty, style=cf.style, color=cf.color, size=cf.size, name=cf.name, scan=cf.scan, curSlot=slot;
+  const qty=cf.qty, style=cf.style, color=cf.color, size=cf.size, name=cf.name, scan=cf.scan, curSlot=slot, source=cf.source||'小仓';
+  const initStatus = source==='陈列仓' ? ST_DONE : ST_TODO;   // 陈列仓=样衣在手，不派配货台
   lastSize[slot]=size;   // 记住这位顾客的码作为后续默认
-  // 合并到已有同款
-  const ex=RAW.find(r=>r.customer===curSlot && r.todo && !r.archived && (final? r.finalCode===final : (r.styleCode===style&&r.color===color&&r.spec===size)));
+  // 合并到已有同款（同来源）
+  const ex=RAW.find(r=>r.customer===curSlot && !r.archived && r.source===source && (final? r.finalCode===final : (r.styleCode===style&&r.color===color&&r.spec===size)));
   if(ex){
     ex.qtyN+=qty; addedCount+=qty; updateScanTop(); finishAdd();   // 立刻反馈
     syncQty(ex);
     return;
   }
-  const fields={[FIELD.customer]:curSlot,[FIELD.status]:ST_TODO,[FIELD.qty]:qty,
+  const fields={[FIELD.customer]:curSlot,[FIELD.status]:initStatus,[FIELD.qty]:qty,[FIELD.source]:source,
     [FIELD.scanCode]:scan,[FIELD.barcode]:scan,[FIELD.styleCode]:style,
     [FIELD.name]:name,[FIELD.color]:color,[FIELD.spec]:size};
   if(final)fields[FIELD.finalCode]=final;

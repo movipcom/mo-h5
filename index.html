@@ -128,7 +128,7 @@
 <script>
 const API='/api/feishu';
 const BARCODE_CDN='https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js';
-const FIELD={ id:'明细ID', customer:'客户', guide:'导购', guidePerson:'导购员', status:'状态', picker:'捡货员', pickPerson:'配货员', archive:'试衣完成', oos:'缺货',
+const FIELD={ id:'明细ID', customer:'客户', guide:'导购', guidePerson:'导购员', status:'状态', picker:'捡货员', pickPerson:'配货员', archive:'试衣完成', oos:'缺货', source:'取货来源',
   styleCode:'识别款式编码', name:'商品名称', scanCode:'扫码商品编码', color:'颜色',
   finalCode:'最终商品编码', spec:'规格', barcode:'条形码', qty:'数量', barcodeImg:'条形码图形' };
 const ST_TODO='试衣单', ST_DONE='配货完成';
@@ -174,6 +174,7 @@ function normalize(items){
     r.qtyN=num(g('qty'))||1; r.todo=r.status!==ST_DONE;
     r.archived=(r.archive===true||r.archive==='true');
     r.outStock=(r.oos===true||r.oos==='true');
+    r.source=cell(g('source'))||'小仓'; r.inHand=(r.source==='陈列仓');
     r.imgTokens=imgTokens(g('barcodeImg'));
     r.bcText=r.finalCode||r.barcode||r.scanCode||'';
     return r;
@@ -201,7 +202,7 @@ function setSeg(s){seg=s;document.querySelectorAll('.seg button').forEach(b=>b.c
 function setCust(c){cust=c;render();}
 
 function render(){
-  const vis=RAW.filter(r=>!r.archived);
+  const vis=RAW.filter(r=>!r.archived && !r.inHand);   // 陈列仓=货在手，不进配货台
   document.getElementById('bTodo').textContent=vis.filter(r=>r.todo).length;
   document.getElementById('bDone').textContent=vis.filter(r=>!r.todo).length;
   const segRows=vis.filter(r=> seg==='todo'?r.todo:!r.todo);

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#16140F">
+<title>MO · 归位台</title>
+<style>
+  :root{
+    --bg:#F3F1EC; --surface:#FFFFFF; --surface-2:#FAF9F5;
+    --ink:#16140F; --ink-2:#7C776C; --ink-3:#ABA69B; --line:#E8E5DC; --line-2:#DCD8CD;
+    --done:#3F6B53; --done-bg:#EAF0EB;
+    --todo:#8C7A4E; --todo-bg:#F4EFE2;
+    --c1:#5A6B7A; --c2:#8A6B74; --c3:#8A7350; --c4:#4E6F69;
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono","Roboto Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Microsoft YaHei",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;}
+  body{background:#E4E2DC;font-family:var(--sans);color:var(--ink);-webkit-font-smoothing:antialiased;display:flex;justify-content:center;letter-spacing:-.005em;}
+  #app{width:100%;max-width:440px;height:100dvh;height:100vh;background:var(--bg);display:flex;flex-direction:column;position:relative;overflow:hidden;box-shadow:0 0 0 1px rgba(0,0,0,.03),0 30px 70px -30px rgba(0,0,0,.35);animation:appIn .55s cubic-bezier(.2,.7,.3,1) both;}
+  @keyframes appIn{from{opacity:0;transform:translateY(7px) scale(.994);}to{opacity:1;transform:none;}}
+  .grain{position:fixed;inset:0;z-index:9998;pointer-events:none;opacity:.4;mix-blend-mode:multiply;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");}
+  @media (prefers-reduced-motion:reduce){#app{animation:none;}}
+  .eyebrow{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-3);font-weight:600;}
+
+  header{flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--line);padding:18px 20px 0;}
+  .top{display:flex;align-items:center;gap:13px;}
+  .wordmark{width:40px;height:40px;border-radius:2px;flex:0 0 auto;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:700;font-size:14px;letter-spacing:.04em;}
+  .htxt{flex:1;min-width:0;}
+  .htxt h1{margin:5px 0 0;font-size:19px;font-weight:600;letter-spacing:-.02em;}
+  .htxt .who{font-size:11px;font-weight:600;color:var(--ink-2);border:1px solid var(--line-2);padding:2px 9px;border-radius:99px;letter-spacing:0;margin-left:9px;cursor:pointer;}
+  .pill{display:inline-flex;align-items:center;gap:6px;height:25px;padding:0 11px;border-radius:99px;font-size:10.5px;font-weight:600;letter-spacing:.02em;border:1px solid var(--line-2);color:var(--ink-2);cursor:pointer;background:var(--surface);}
+  .pill .led{width:5px;height:5px;border-radius:50%;background:var(--ink-3);}
+  .pill.live{color:var(--done);border-color:#CFE0D3;} .pill.live .led{background:var(--done);}
+  .pill.demo{color:var(--todo);border-color:#E6DAB9;} .pill.demo .led{background:var(--todo);}
+
+  .seg{display:flex;gap:24px;margin-top:16px;}
+  .seg button{border:none;background:none;padding:0 0 14px;font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--ink-3);cursor:pointer;display:flex;align-items:center;gap:8px;position:relative;}
+  .seg button .badge{font-family:var(--mono);font-size:11px;font-weight:600;min-width:19px;height:19px;border-radius:99px;padding:0 6px;display:inline-grid;place-items:center;background:var(--line);color:var(--ink-2);}
+  .seg button.on{color:var(--ink);}
+  .seg button.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1.5px;background:var(--ink);}
+  .seg button.on .badge{background:var(--ink);color:#fff;}
+
+  .subbar{flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--line);padding:11px 20px;}
+  .chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;}
+  .chips::-webkit-scrollbar{display:none;}
+  .chip-f{flex:0 0 auto;height:31px;padding:0 14px;border-radius:99px;border:1px solid var(--line-2);background:var(--surface);font-size:12.5px;font-weight:500;color:var(--ink-2);cursor:pointer;display:flex;align-items:center;gap:7px;letter-spacing:-.01em;}
+  .chip-f .av{width:16px;height:16px;border-radius:2px;color:#fff;font-size:9px;font-weight:700;display:grid;place-items:center;}
+  .chip-f.on{background:var(--ink);border-color:var(--ink);color:#fff;}
+  .chip-f .own{color:var(--ink-3);margin:0 3px;font-weight:400;}
+  .chip-f.on .own{color:rgba(255,255,255,.5);}
+
+  main{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 18px calc(28px + env(safe-area-inset-bottom));}
+  .grp{margin-bottom:8px;}
+  .grp-h{display:flex;align-items:center;gap:10px;padding:14px 4px 10px;}
+  .grp-h .av{width:22px;height:22px;border-radius:2px;color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center;flex:0 0 auto;}
+  .grp-h .gn{font-size:14px;font-weight:600;letter-spacing:-.01em;}
+  .grp-h .gguide{font-size:11px;color:var(--ink-2);font-weight:500;}
+  .grp-h .gguide::before{content:"· ";color:var(--ink-3);}
+  .grp-h .gq{font-family:var(--mono);font-size:11px;color:var(--ink-3);}
+  .grp-h .gpick{margin-left:auto;height:30px;padding:0 14px;border-radius:2px;border:1px solid var(--ink);background:var(--ink);color:#fff;font-size:11px;font-weight:600;letter-spacing:.04em;cursor:pointer;}
+  .grp-h .gpick:active{opacity:.85;}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:16px;margin-bottom:12px;position:relative;}
+  .oos-btn{position:absolute;top:10px;right:10px;z-index:2;height:22px;padding:0 9px;border-radius:99px;border:1px solid var(--line);background:var(--surface);color:var(--ink-3);font-size:11px;font-weight:600;font-family:inherit;letter-spacing:.02em;cursor:pointer;opacity:.7;transition:.18s;}
+  .oos-btn:active{transform:scale(.94);}
+  .oos-btn.on{opacity:1;border-color:var(--bad);background:var(--bad-bg);color:var(--bad);}
+  .card.oos{background:linear-gradient(0deg,var(--bad-bg),var(--surface) 60%);border-color:#E4C7C2;}
+  .card.oos .c-name{color:var(--bad);}
+  .card.done{opacity:.66;}
+  .c-top{display:flex;align-items:center;gap:10px;}
+  .c-cust{display:flex;align-items:center;gap:8px;}
+  .c-cust .av{width:24px;height:24px;border-radius:2px;color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center;}
+  .c-cust .cn{font-size:14px;font-weight:600;letter-spacing:-.01em;}
+  .c-guide{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-2);}
+  .c-guide .lbl{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);font-weight:600;}
+  .c-name{font-size:14px;font-weight:600;letter-spacing:-.012em;margin-top:13px;line-height:1.35;padding-right:54px;}
+  .c-attrs{display:flex;align-items:center;gap:10px;margin-top:9px;flex-wrap:wrap;}
+  .attr{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2);font-weight:500;}
+  .swatch{width:12px;height:12px;border-radius:50%;flex:0 0 auto;box-shadow:inset 0 0 0 1px rgba(0,0,0,.13);}
+  .size-pill{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--ink);border:1px solid var(--line-2);border-radius:2px;padding:2px 8px;letter-spacing:.04em;}
+
+  .bc-wrap{margin-top:14px;background:var(--surface-2);border:1px solid var(--line);border-radius:3px;padding:14px 12px 11px;display:flex;flex-direction:column;align-items:center;gap:9px;}
+  .bc{width:100%;max-width:250px;height:50px;}
+  .bcimg{max-width:250px;max-height:64px;background:#fff;}
+  .bc-code{font-family:var(--mono);font-size:13px;letter-spacing:.18em;color:var(--ink);font-weight:600;}
+  .bc-code.none{color:#8E3B36;letter-spacing:.02em;}
+
+  .status-btn{width:100%;height:50px;margin-top:14px;border-radius:2px;border:none;font-size:14px;font-weight:600;letter-spacing:.06em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;background:var(--ink);color:#fff;}
+  .status-btn:active{opacity:.9;}
+  .status-done{width:100%;height:46px;margin-top:14px;border-radius:2px;border:1px solid var(--line-2);background:var(--done-bg);color:var(--done);font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;}
+
+  .state{padding:62px 30px;text-align:center;color:var(--ink-3);}
+  .state svg{margin-bottom:16px;opacity:.4;}
+  .state h4{margin:0 0 7px;color:var(--ink-2);font-size:14px;font-weight:600;}
+  .state p{margin:0;font-size:12.5px;line-height:1.7;}
+  .skel{background:var(--surface);border:1px solid var(--line);border-radius:3px;height:150px;margin-bottom:12px;position:relative;overflow:hidden;}
+  .skel::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(0,0,0,.03),transparent);animation:sh 1.3s infinite;}
+  @keyframes sh{100%{transform:translateX(100%)}}
+  .errbar{background:var(--todo-bg);color:#7A6633;font-size:12px;padding:11px 14px;border-radius:3px;margin-bottom:14px;line-height:1.6;border:1px solid #E6DAB9;}
+
+  .toast{position:absolute;left:50%;bottom:40px;transform:translateX(-50%) translateY(8px);background:var(--ink);color:#fff;font-size:12.5px;padding:11px 18px;border-radius:2px;opacity:0;pointer-events:none;transition:.2s;z-index:70;white-space:nowrap;max-width:90%;overflow:hidden;text-overflow:ellipsis;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  @media (prefers-reduced-motion:reduce){.skel::after{animation:none;}}
+</style>
+<style>
+  .grain{position:fixed;inset:0;z-index:9998;pointer-events:none;opacity:.4;mix-blend-mode:multiply;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");}
+  @keyframes appIn{from{opacity:0;transform:translateY(7px) scale(.994);}to{opacity:1;transform:none;}}
+  .src-pill{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:2px;font-size:10.5px;font-weight:700;letter-spacing:.03em;}
+  .src-pill.hand{color:#4A5A6B;background:#E8EDF1;}
+  .src-pill.cang{color:var(--gold,#8C7A4E);background:var(--gold-bg,#F4EFE2);}
+  .ret-btn{width:100%;height:46px;margin-top:13px;border:none;border-radius:3px;background:var(--ink);color:#fff;font-size:14.5px;font-weight:600;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;}
+  .ret-btn:active{transform:scale(.98);}
+  .addbar{position:absolute;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);padding:13px 20px calc(13px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:14px;}
+  .scan{flex:1;height:52px;border:none;border-radius:3px;background:var(--ink);color:#fff;font-size:16px;font-weight:600;font-family:inherit;display:inline-flex;align-items:center;justify-content:center;gap:9px;cursor:pointer;}
+  .sum .n{font-family:var(--mono);font-size:22px;font-weight:600;}.sum .l{font-size:10px;color:var(--ink-3);}
+  .scanlayer{position:absolute;inset:0;z-index:50;background:#0B0A09;display:none;flex-direction:column;}
+  .scanlayer.show{display:flex;}
+  .scan-top{flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:16px 18px;color:#fff;}
+  .scan-top .stitle{flex:1;font-size:15px;font-weight:600;}
+  .scan-close{width:34px;height:34px;border-radius:2px;border:none;background:rgba(255,255,255,.12);color:#fff;display:grid;place-items:center;cursor:pointer;}
+  .scan-view{flex:1;position:relative;overflow:hidden;}
+  #reader{position:absolute;inset:0;}#reader video{width:100%!important;height:100%!important;object-fit:cover!important;}
+  .reticle{position:absolute;left:50%;top:50%;width:250px;height:150px;transform:translate(-50%,-50%);pointer-events:none;}
+  .reticle i{position:absolute;width:24px;height:24px;border:2px solid #fff;}
+  .reticle i:nth-child(1){left:0;top:0;border-right:0;border-bottom:0;}.reticle i:nth-child(2){right:0;top:0;border-left:0;border-bottom:0;}
+  .reticle i:nth-child(3){left:0;bottom:0;border-right:0;border-top:0;}.reticle i:nth-child(4){right:0;bottom:0;border-left:0;border-top:0;}
+  .scan-foot{flex:0 0 auto;padding:16px 18px calc(16px + env(safe-area-inset-bottom));display:flex;gap:10px;}
+  .scan-foot button{flex:1;height:46px;border-radius:2px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;}
+  .scan-foot .dbtn{background:#fff;color:#16140F;border-color:#fff;}
+  .allbtn{margin-left:auto;height:30px;padding:0 14px;border-radius:2px;border:1px solid var(--ink);background:var(--ink);color:#fff;font-size:11px;font-weight:600;letter-spacing:.04em;cursor:pointer;}
+  #app{animation:appIn .5s cubic-bezier(.2,.7,.3,1) both;}
+</style>
+</head>
+<body>
+<div class="grain"></div>
+<div id="app">
+  <header>
+    <div class="top">
+      <div class="wordmark">MO</div>
+      <div class="htxt">
+        <div class="eyebrow">Reposition Station · 归位台</div>
+        <h1>待归位 <span class="who" id="meName" onclick="setOperator()">归位员</span></h1>
+      </div>
+      <span class="pill" id="srcPill" onclick="refresh()"><span class="led"></span><span id="srcTxt">连接中</span></span>
+    </div>
+  </header>
+  <main id="list"></main>
+  <div class="addbar">
+    <div class="sum"><div class="n" id="sumN">0</div><div class="l">件 · 待归位</div></div>
+    <button class="scan" onclick="openScan()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="12" rx="1" stroke="currentColor" stroke-width="1.6"/><path d="M7 6v12M11 6v12M15 6v12M18 6v12" stroke="currentColor" stroke-width="1.3"/></svg>
+      扫码归位
+    </button>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <div class="scanlayer" id="scanLayer">
+    <div class="scan-top"><div class="stitle">扫码归位 · 扫吊牌即归位</div>
+      <button class="scan-close" onclick="closeScan()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="scan-view"><div id="reader"></div><div class="reticle"><i></i><i></i><i></i><i></i></div></div>
+    <div class="scan-foot"><button class="dbtn" onclick="closeScan()">完成</button></div>
+  </div>
+</div>
+
+<script>
+const API='/api/feishu';
+const BARCODE_CDN='https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js';
+const SCAN_CDN='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';
+const ST_DONE='配货完成';
+const FIELD={ id:'明细ID', customer:'客户', guidePerson:'导购员', status:'状态', archive:'试衣完成', bought:'已购买', returned:'已归位', source:'取货来源',
+  styleCode:'识别款式编码', name:'商品名称', scanCode:'扫码商品编码', color:'颜色', finalCode:'最终商品编码', spec:'规格', barcode:'条形码', qty:'数量', barcodeImg:'条形码图形' };
+let RAW=[], LIVE=false;
+let OP=''; try{OP=localStorage.getItem('mo_operator')||'';}catch(e){}
+function applyOP(){const el=document.getElementById('meName');if(el)el.textContent=OP||'归位员';}
+function setOperator(){const n=prompt('请输入你的名字（归位员）',OP||'');if(n!=null){OP=n.trim();try{localStorage.setItem('mo_operator',OP);}catch(e){}applyOP();}}
+
+function cell(v){ if(v==null)return''; if(Array.isArray(v)){ if(v.length&&typeof v[0]==='object'){ if('text'in v[0])return v.map(s=>s.text).join(''); if('name'in v[0])return v.map(s=>s.name).join('、'); return v.map(x=>x.text||x.name||'').join('、'); } return v.join('、'); } if(typeof v==='object')return v.text||v.name||''; return v; }
+function num(v){const n=parseFloat(String(cell(v)).replace(/[^\d.\-]/g,''));return isNaN(n)?0:n;}
+function bool(v){return v===true||v==='true';}
+function jsq(s){return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
+function colorHex(n){ n=String(n||''); const m=[['黑','#211E19'],['藏青','#33415C'],['深空','#3B3B40'],['烟','#5B5750'],['碳','#3E3B36'],['灰','#9C988E'],['白','#ECE9E1'],['麻','#BCAC91'],['燕麦','#C9B79A'],['卡其','#B7A083'],['咖','#8A6A4E'],['棕','#8A6A4E'],['茶','#6E5847'],['红','#AE463E'],['粉','#D2A2AB'],['樱','#D2A2AB'],['藕','#9F8290'],['紫','#9A7E9C'],['黄','#D6C277'],['酪','#D8CE9E'],['牛仔','#5C7494'],['蓝','#6F8CAE'],['绿','#7C8264'],['橄榄','#7C8264']]; for(const [k,v] of m) if(n.includes(k)) return v; return '#BBB5A9'; }
+async function post(body){ const res=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); const j=await res.json(); if(!j.ok)throw new Error(j.error||'请求失败'); return j; }
+let tt;function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),1700);}
+function gname(r){return r.guidePerson||'';}
+
+function normalize(items){ return items.map(it=>{ const f=it.fields||{},g=k=>f[FIELD[k]],r={_id:it.recordId}; for(const k in FIELD)r[k]=cell(g(k)); r.qtyN=num(g('qty'))||1; r.archived=bool(g('archive')); r.bought=bool(g('bought')); r.returned=bool(g('returned')); r.source=cell(g('source'))||'小仓'; r.inHand=(r.source==='陈列仓'); r.bcText=r.finalCode||r.barcode||r.scanCode||''; return r; }); }
+
+/* 待归位 = 已结束(试衣完成) 且 未归位 且 (陈列样衣 或 未购买) */
+function needRet(r){ return r.archived && !r.returned && (r.inHand || !r.bought); }
+
+async function refresh(){
+  document.getElementById('srcTxt').textContent='连接中';
+  try{ const res=await fetch(API+'?action=list'); const j=await res.json(); if(!j.ok)throw new Error(j.error||'代理异常'); RAW=normalize(j.items); LIVE=true; setSrc(true); }
+  catch(e){ RAW=demo(); LIVE=false; setSrc(false); }
+  applyOP(); render();
+}
+function setSrc(live){ const p=document.getElementById('srcPill'); p.className='pill '+(live?'live':'demo'); document.getElementById('srcTxt').textContent=live?'已连接飞书':'演示数据'; }
+
+function render(){
+  const rows=RAW.filter(needRet);
+  document.getElementById('sumN').textContent=rows.reduce((a,r)=>a+r.qtyN,0);
+  const main=document.getElementById('list');
+  if(!rows.length){ main.innerHTML='<div class="state"><svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4L19 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><h4>没有待归位</h4><p>试穿完未购买/陈列样衣会出现在这里</p></div>'; return; }
+  // 分组 导购×客户
+  const groups={}; rows.forEach(r=>{ const k=gname(r)+'\u0001'+(r.customer||''); (groups[k]=groups[k]||{guide:gname(r),customer:r.customer||'',items:[]}).items.push(r); });
+  let h=''; if(!LIVE)h='<div class="errbar">演示数据 — 真实环境会显示导购结算后待归位的件。</div>';
+  Object.values(groups).forEach(g=>{
+    h+=`<div class="grp"><div class="grp-h"><span class="gn">${g.guide?g.guide+'的':''}${g.customer||'未指定'}</span><span class="gq">${g.items.length} 件</span><button class="allbtn" onclick='retGroup("${jsq(g.guide)}","${jsq(g.customer)}")'>全部归位</button></div>`;
+    g.items.forEach(r=>{
+      const tag=r.inHand?'<span class="src-pill hand">回陈列架</span>':'<span class="src-pill cang">回小仓</span>';
+      h+=`<div class="card">
+        <div class="c-name">${r.name||'未匹配'}</div>
+        <div class="c-attrs">${r.color?`<span class="attr"><span class="swatch" style="background:${colorHex(r.color)}"></span>${r.color}</span>`:''}${r.spec?`<span class="size-pill">${r.spec}</span>`:''}${tag}</div>
+        <div class="bc-wrap">${r.bcText?`<svg class="bc" data-code="${r.bcText}"></svg><div class="bc-code">${r.bcText}</div>`:'<div class="bc-code none">无条码</div>'}</div>
+        <button class="ret-btn" onclick='retOne("${r._id}")'><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4L19 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg> 已归位</button>
+      </div>`;
+    });
+    h+='</div>';
+  });
+  main.innerHTML=h; renderBarcodes();
+}
+
+let bcLoaded=false;
+function loadBC(){return new Promise(res=>{ if(window.JsBarcode){bcLoaded=true;return res(true);} const s=document.createElement('script');s.src=BARCODE_CDN;s.onload=()=>{bcLoaded=true;res(true);};s.onerror=()=>res(false);document.head.appendChild(s);});}
+async function renderBarcodes(){ const els=document.querySelectorAll('svg.bc[data-code]'); if(!els.length)return; const ok=await loadBC(); if(!ok||!window.JsBarcode)return; els.forEach(el=>{ try{ JsBarcode(el,el.dataset.code,{format:'CODE128',displayValue:false,height:46,margin:0,width:1.7}); }catch(e){} }); }
+
+async function retOne(id){
+  const r=RAW.find(x=>x._id===id); if(!r)return;
+  r.returned=true; render();   // 乐观
+  if(!LIVE)return;
+  try{ await post({action:'update',recordId:id,fields:{[FIELD.returned]:true}}); }
+  catch(e){ r.returned=false; toast('归位同步失败，已还原'); render(); }
+}
+async function retGroup(guide,customer){
+  const ids=RAW.filter(r=>needRet(r)&&gname(r)===guide&&r.customer===customer).map(r=>r._id);
+  for(const id of ids){ const r=RAW.find(x=>x._id===id); if(r)r.returned=true; }
+  render();
+  if(!LIVE)return;
+  Promise.all(ids.map(id=>post({action:'update',recordId:id,fields:{[FIELD.returned]:true}}))).catch(e=>{ toast('部分归位失败，请刷新'); refresh(); });
+}
+
+/* 扫码归位：扫到的码在待归位里找匹配 → 标已归位（不防错，找不到则提示） */
+let h5q=null,scanning=false,lastCode='',lastT=0;
+function loadScanLib(){return new Promise(res=>{ if(window.Html5Qrcode)return res(true); const s=document.createElement('script');s.src=SCAN_CDN;s.onload=()=>res(true);s.onerror=()=>res(false);document.head.appendChild(s);});}
+async function openScan(){
+  document.getElementById('scanLayer').classList.add('show');
+  const ok=await loadScanLib(); if(!ok||!window.Html5Qrcode){ toast('扫码组件未加载'); return; }
+  try{ h5q=new Html5Qrcode('reader',{verbose:false}); await h5q.start({facingMode:'environment'},{fps:10,qrbox:{width:260,height:150}},onDecode,()=>{}); scanning=true; }
+  catch(e){ toast('无法打开相机：'+(e.message||e)); }
+}
+function onDecode(text){
+  const now=Date.now(); if(text===lastCode&&now-lastT<1500)return; lastCode=text; lastT=now;
+  const s=String(text).trim();
+  const r=RAW.find(x=>needRet(x)&&(x.finalCode===s||x.barcode===s||x.scanCode===s||x.bcText===s));
+  beep();
+  if(r){ retOne(r._id); toast('✓ 已归位 '+(r.name||s)); }
+  else { toast('未找到待归位项：'+s); }
+}
+let actx;function beep(){ try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); const o=actx.createOscillator(),g=actx.createGain(); o.type='sine';o.frequency.value=920;o.connect(g);g.connect(actx.destination); const t=actx.currentTime; g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.22,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+.12); o.start(t);o.stop(t+.13);}catch(e){} if(navigator.vibrate)navigator.vibrate(28); }
+async function closeScan(){ if(h5q&&scanning){ try{await h5q.stop();}catch(e){} try{h5q.clear();}catch(e){} } h5q=null;scanning=false; document.getElementById('scanLayer').classList.remove('show'); render(); }
+
+function demo(){
+  const base=[['客户1','王晟','Dokky【俱乐部字母T-D0902】印花字母短袖T恤','藏青','M','D0902M2','小仓',false],
+  ['客户1','王晟','Dokky【南法波点裙D0685】小复古百褶半身裙','复古红','F','D0685F1','陈列仓',true],
+  ['客户2','于德水','Dokky【缪系菱格D0683】复古菱格针织衫','燕麦','L','D0683L1','陈列仓',false],
+  ['客户2','于德水','Dokky【松弛廓形D0571】水洗直筒牛仔裤','牛仔蓝','XL','D0571XL3','小仓',false]];
+  return base.map((a,i)=>({_id:'demo'+i,customer:a[0],guidePerson:a[1],name:a[2],color:a[3],spec:a[4],finalCode:a[5],barcode:a[5],scanCode:a[5],bcText:a[5],source:a[6],inHand:a[6]==='陈列仓',bought:a[7],returned:false,archived:true,qtyN:1}));
+}
+
+refresh();
+async function silentRefresh(){ if(!LIVE)return; if(document.getElementById('scanLayer').classList.contains('show'))return; try{ const res=await fetch(API+'?action=list'); const j=await res.json(); if(!j.ok)return; RAW=normalize(j.items); render(); }catch(e){} }
+setInterval(silentRefresh,25000);
+</script>
+</body>
+</html>

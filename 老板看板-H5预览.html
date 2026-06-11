@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
 <meta name="theme-color" content="#16140F">
-<title>MO · 数据看板</title>
+<title>MO · 成交转化看板</title>
 <style>
   :root{
     --bg:#F3F1EC; --surface:#FFFFFF; --surface-2:#FAF8F3;
@@ -107,8 +107,8 @@
     <div class="brand">
       <div class="logo">MO</div>
       <div>
-        <div class="eyebrow">Atelier · Insights</div>
-        <h1 style="margin-top:5px;">数据看板</h1>
+        <div class="eyebrow">Atelier · Conversion</div>
+        <h1 style="margin-top:5px;">成交转化</h1>
       </div>
     </div>
     <div class="conn" id="conn"><span class="dot off"></span><span id="connT">连接中</span></div>
@@ -121,25 +121,23 @@
   <button data-r="all">全部</button>
 </div>
 
-<div id="app"><div class="skel"><span class="spin"></span>正在汇总数据…</div></div>
+<div id="app"><div class="skel"><span class="spin"></span>正在汇总转化…</div></div>
 
 <script>
-/* ===== 配置 ===== */
 const API='/api/feishu';
 let LIVE=true;
 const ST_DONE='配货完成';
-const FIELD={ customer:'客户', guidePerson:'导购员', pickPerson:'配货员', status:'状态', archive:'试衣完成',
+const FIELD={ customer:'客户', guidePerson:'导购员', status:'状态', archive:'试衣完成', oos:'缺货', bought:'已购买', returned:'已归位',
   styleCode:'识别款式编码', name:'商品名称', color:'颜色', finalCode:'最终商品编码', spec:'规格', qty:'数量' };
-
 let RANGE='today', RAW=[];
 
-/* ===== 工具 ===== */
 function cell(v){
   if(v==null)return'';
   if(Array.isArray(v)){ if(v.length&&typeof v[0]==='object'){ if('text'in v[0])return v.map(s=>s.text).join(''); if('name'in v[0])return v.map(s=>s.name).join('、'); return v.map(x=>x.text||x.name||'').join('、'); } return v.join('、'); }
   if(typeof v==='object')return v.text||v.name||''; return v;
 }
 function num(v){const n=parseFloat(cell(v));return isNaN(n)?0:n;}
+function bool(v){return v===true||v==='true';}
 function colorHex(n){
   n=String(n||'');
   const m=[['黑','#211E19'],['藏青','#33415C'],['深空','#3B3B40'],['烟','#5B5750'],['碳','#3E3B36'],['灰','#9C988E'],
@@ -149,21 +147,19 @@ function colorHex(n){
   for(const [k,v] of m) if(n.includes(k)) return v; return '#BBB5A9';
 }
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
-function shortName(s){ s=String(s||''); const m=s.match(/[DLＤ]?\d{3,}[A-Za-z]*/); return s.replace(/^Dokky\s*/i,'').replace(/【.*?】/,'').trim()||s; }
+function shortName(s){ s=String(s||''); return s.replace(/^Dokky\s*/i,'').replace(/【.*?】/,'').replace(/「.*?」/,'').trim()||s; }
 
-/* ===== 拉取 ===== */
 async function load(){
   try{
-    const r=await fetch(`${API}?action=list`);
-    if(!r.ok)throw 0;
+    const r=await fetch(API+'?action=list'); if(!r.ok)throw 0;
     const j=await r.json();
     RAW=(j.items||j.data||[]).map(it=>{
       const f=it.fields||{},g=k=>f[FIELD[k]],o={};
       for(const k in FIELD)o[k]=cell(g(k));
       o.qtyN=num(g('qty'))||1;
       o.done=o.status===ST_DONE;
-      o.archived=(o.archive===true||o.archive==='true');
-      o.ts=it.createdTime?(+it.createdTime< 1e12 ? +it.createdTime*1000 : +it.createdTime):0;
+      o.bought=bool(g('bought')); o.returned=bool(g('returned')); o.oos=bool(g('oos')); o.archived=bool(g('archive'));
+      o.ts=it.createdTime?(+it.createdTime<1e12?+it.createdTime*1000:+it.createdTime):0;
       return o;
     });
     LIVE=true; conn(true);
@@ -172,102 +168,92 @@ async function load(){
 }
 function conn(on){ document.getElementById('conn').querySelector('.dot').className='dot'+(on?'':' off'); document.getElementById('connT').textContent=on?'已连接飞书':'演示数据'; }
 
-/* ===== 统计 ===== */
 function inRange(r){
   if(RANGE==='all')return true;
   if(!r.ts)return false;
   const now=new Date();
   if(RANGE==='today'){ const d=new Date(r.ts); return d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth()&&d.getDate()===now.getDate(); }
-  if(RANGE==='week'){ return r.ts>= now.getTime()-7*864e5; }
+  if(RANGE==='week'){ return r.ts>=now.getTime()-7*864e5; }
   return true;
 }
 function agg(){
   const rows=RAW.filter(inRange);
   const tried=rows.reduce((a,r)=>a+r.qtyN,0);
   const doneN=rows.filter(r=>r.done).reduce((a,r)=>a+r.qtyN,0);
-  const sessions=new Set(rows.map(r=>(r.guidePerson||'·')+'¦'+(r.customer||'·'))).size;
-  const broken=rows.filter(r=>!r.finalCode);
-  const brokenN=broken.reduce((a,r)=>a+r.qtyN,0);
-  const rate=tried? Math.round(doneN/tried*100):0;
-  // 热销款式
-  const styleMap={};
-  rows.forEach(r=>{ const k=r.name||r.styleCode||'未命名'; if(!styleMap[k])styleMap[k]={n:0,code:r.styleCode}; styleMap[k].n+=r.qtyN; });
-  const styles=Object.entries(styleMap).map(([k,v])=>({name:k,n:v.n,code:v.code})).sort((a,b)=>b.n-a.n).slice(0,6);
-  // 颜色
-  const colMap={}; rows.forEach(r=>{ const k=r.color||'未填'; colMap[k]=(colMap[k]||0)+r.qtyN; });
-  const colors=Object.entries(colMap).map(([k,v])=>({name:k,n:v})).sort((a,b)=>b.n-a.n).slice(0,6);
-  // 尺码
-  const order=['XS','S','M','L','XL','XXL','2XL','3XL'];
-  const szMap={}; rows.forEach(r=>{ const k=(r.spec||'·').toUpperCase(); szMap[k]=(szMap[k]||0)+r.qtyN; });
-  let sizes=Object.entries(szMap).map(([k,v])=>({name:k,n:v}));
-  sizes.sort((a,b)=>{const ia=order.indexOf(a.name),ib=order.indexOf(b.name);return (ia<0?99:ia)-(ib<0?99:ib);});
-  // 导购排行
-  const gMap={}; rows.forEach(r=>{ const k=r.guidePerson||'未署名'; if(!gMap[k])gMap[k]={n:0,cu:new Set()}; gMap[k].n+=r.qtyN; gMap[k].cu.add(r.customer); });
-  const guides=Object.entries(gMap).map(([k,v])=>({name:k,n:v.n,cu:v.cu.size})).sort((a,b)=>b.n-a.n).slice(0,6);
-  // 断码清单（去重 款+色+码）
-  const bMap={}; broken.forEach(r=>{ const k=(r.styleCode||r.name||'?')+'¦'+(r.color||'')+'¦'+(r.spec||''); if(!bMap[k])bMap[k]={name:r.name||r.styleCode,color:r.color,spec:r.spec,n:0}; bMap[k].n+=r.qtyN; });
-  const restock=Object.values(bMap).sort((a,b)=>b.n-a.n).slice(0,8);
-  return {tried,doneN,sessions,brokenN,rate,styles,colors,sizes,guides,restock,total:rows.length};
+  const boughtN=rows.filter(r=>r.bought).reduce((a,r)=>a+r.qtyN,0);
+  const returnedN=rows.filter(r=>r.returned).reduce((a,r)=>a+r.qtyN,0);
+  const oosN=rows.filter(r=>r.oos).reduce((a,r)=>a+r.qtyN,0);
+  const rate=tried?Math.round(boughtN/tried*100):0;
+  // 接待与成交客数
+  const sess={}; rows.forEach(r=>{ const k=(r.guidePerson||'·')+'¦'+(r.customer||'·'); if(!sess[k])sess[k]={any:false,buy:false}; sess[k].any=true; if(r.bought)sess[k].buy=true; });
+  const sessions=Object.keys(sess).length; const buySess=Object.values(sess).filter(s=>s.buy).length;
+  // 导购转化排行
+  const gMap={}; rows.forEach(r=>{ const k=r.guidePerson||'未署名'; if(!gMap[k])gMap[k]={tried:0,buy:0}; gMap[k].tried+=r.qtyN; if(r.bought)gMap[k].buy+=r.qtyN; });
+  const guides=Object.entries(gMap).map(([k,v])=>({name:k,tried:v.tried,buy:v.buy,rate:v.tried?Math.round(v.buy/v.tried*100):0})).sort((a,b)=>b.buy-a.buy||b.rate-a.rate).slice(0,8);
+  // 成交热销款
+  const sMap={}; rows.filter(r=>r.bought).forEach(r=>{ const k=r.name||r.styleCode||'未命名'; if(!sMap[k])sMap[k]={n:0,code:r.styleCode}; sMap[k].n+=r.qtyN; });
+  const sold=Object.entries(sMap).map(([k,v])=>({name:k,n:v.n,code:v.code})).sort((a,b)=>b.n-a.n).slice(0,6);
+  // 缺货清单(配货员标记 + 断码)
+  const oMap={}; rows.filter(r=>r.oos||!r.finalCode).forEach(r=>{ const k=(r.styleCode||r.name||'?')+'¦'+(r.color||'')+'¦'+(r.spec||''); if(!oMap[k])oMap[k]={name:r.name||r.styleCode,color:r.color,spec:r.spec,n:0,tag:r.oos?'缺货':'断码'}; oMap[k].n+=r.qtyN; });
+  const oosList=Object.values(oMap).sort((a,b)=>b.n-a.n).slice(0,8);
+  // 未归位安全网(已结束 未购买 未归位)
+  const lost=rows.filter(r=>r.archived&&!r.bought&&!r.returned);
+  return {tried,doneN,boughtN,returnedN,oosN,rate,sessions,buySess,guides,sold,oosList,lost,total:rows.length};
 }
 
-/* ===== 渲染 ===== */
 function render(){
   const a=agg();
-  const maxS=Math.max(1,...a.styles.map(s=>s.n));
-  const maxC=Math.max(1,...a.colors.map(s=>s.n));
-  const maxSz=Math.max(1,...a.sizes.map(s=>s.n));
-  const maxG=Math.max(1,...a.guides.map(s=>s.n));
+  const maxG=Math.max(1,...a.guides.map(s=>s.buy),1);
+  const maxSold=Math.max(1,...a.sold.map(s=>s.n));
   const rangeLabel={today:'今日',week:'近 7 日',all:'全部'}[RANGE];
-
   let h='';
-  // KPI
   h+=`<div class="kpis reveal">
-    <div class="kpi"><div class="k-eyebrow"><span class="k-ic"></span><span class="eyebrow">Items Tried</span></div><div class="num" data-cnt="${a.tried}">0<span class="unit">件试穿</span></div><div class="k-sub">${rangeLabel} · 共 <b>${a.total}</b> 条明细</div></div>
-    <div class="kpi green"><div class="k-eyebrow"><span class="k-ic"></span><span class="eyebrow">Fulfilled</span></div><div class="num" data-cnt="${a.doneN}">0<span class="unit">件配齐</span></div><div class="k-sub">配货完成率 <b>${a.rate}%</b></div></div>
-    <div class="kpi gold"><div class="k-eyebrow"><span class="k-ic"></span><span class="eyebrow">Sessions</span></div><div class="num" data-cnt="${a.sessions}">0<span class="unit">单接待</span></div><div class="k-sub">导购×客户 试衣单</div></div>
-    <div class="kpi bad"><div class="k-eyebrow"><span class="k-ic"></span><span class="eyebrow">Out of Stock</span></div><div class="num" data-cnt="${a.brokenN}">0<span class="unit">次断码</span></div><div class="k-sub">顾客想要但缺货</div></div>
+    <div class="kpi green"><div class="k-eyebrow"><span class="k-ic"></span><span class="eyebrow">Sold</span></div><div class="num" data-cnt="${a.boughtN}">0<span class="unit">件成交</span></div><div class="k-sub">${rangeLabel} · 试衣 <b>${a.tried}</b> 件</div></div>
+    <div class="kpi"><div class="k-eyebrow"><span class="k-ic"></span><span class="eyebrow">Conv. Rate</span></div><div class="num" data-cnt="${a.rate}">0<span class="unit">%</span></div><div class="k-sub">成交客 <b>${a.buySess}</b>/<b>${a.sessions}</b> 单</div></div>
+    <div class="kpi gold"><div class="k-eyebrow"><span class="k-ic"></span><span class="eyebrow">Returned</span></div><div class="num" data-cnt="${a.returnedN}">0<span class="unit">件回流</span></div><div class="k-sub">未购买已归位小仓</div></div>
+    <div class="kpi bad"><div class="k-eyebrow"><span class="k-ic"></span><span class="eyebrow">Out of Stock</span></div><div class="num" data-cnt="${a.oosN}">0<span class="unit">件缺货</span></div><div class="k-sub">缺货可能流失</div></div>
   </div>`;
 
-  // 热销款式
-  h+=`<section class="reveal"><div class="sec-h"><span class="t">热销款式</span><span class="meta">TOP ${a.styles.length} · 按试穿件数</span></div><div class="panel">`;
-  if(!a.styles.length)h+=`<div class="empty">暂无数据</div>`;
-  a.styles.forEach((s,i)=>{ h+=`<div class="bar"><div class="fill" style="width:${Math.round(s.n/maxS*100)}%"></div><div class="row"><span class="rk">${i+1}</span><span class="nm">${esc(shortName(s.name))}${s.code?`<span class="code">${esc(s.code)}</span>`:''}</span><span class="vv">${s.n}<small>件</small></span></div></div>`; });
+  // 转化漏斗
+  const f1=a.tried,f2=a.doneN,f3=a.boughtN,fm=Math.max(1,f1);
+  h+=`<section class="reveal"><div class="sec-h"><span class="t">转化漏斗</span><span class="meta">试衣 → 配货 → 成交</span></div><div class="panel">`;
+  [['试衣件数',f1,''],['配货完成',f2,'g'],['成交件数',f3,'g']].forEach(([nm,v,cl])=>{
+    h+=`<div class="bar ${cl}"><div class="fill" style="width:${Math.round(v/fm*100)}%"></div><div class="row"><span class="nm">${nm}</span><span class="vv">${v}<small> · ${Math.round(v/fm*100)}%</small></span></div></div>`;
+  });
   h+=`</div></section>`;
 
-  // 颜色偏好
-  h+=`<section class="reveal"><div class="sec-h"><span class="t">热门颜色</span><span class="meta">按试穿件数</span></div><div class="panel">`;
-  if(!a.colors.length)h+=`<div class="empty">暂无数据</div>`;
-  a.colors.forEach((s,i)=>{ h+=`<div class="bar"><div class="fill" style="width:${Math.round(s.n/maxC*100)}%"></div><div class="row"><span class="sw" style="background:${colorHex(s.name)}"></span><span class="nm">${esc(s.name)}</span><span class="vv">${s.n}<small>件</small></span></div></div>`; });
-  h+=`</div></section>`;
-
-  // 尺码偏好
-  h+=`<section class="reveal"><div class="sec-h"><span class="t">尺码偏好</span><span class="meta">分布占比</span></div><div class="panel"><div class="sizes">`;
-  if(!a.sizes.length)h+=`<div class="empty" style="flex:1">暂无数据</div>`;
-  const szTotal=a.sizes.reduce((x,s)=>x+s.n,0)||1;
-  a.sizes.forEach(s=>{ h+=`<div class="size-c"><div class="s">${esc(s.name)}</div><div class="v">${s.n}</div><div class="pct">${Math.round(s.n/szTotal*100)}%</div><div class="mini"><i style="width:${Math.round(s.n/maxSz*100)}%"></i></div></div>`; });
-  h+=`</div></div></section>`;
-
-  // 导购排行
-  h+=`<section class="reveal"><div class="sec-h"><span class="t">导购排行</span><span class="meta">服务件数</span></div><div class="panel">`;
+  // 导购转化排行
+  h+=`<section class="reveal"><div class="sec-h"><span class="t">导购转化排行</span><span class="meta">成交件 · 转化率</span></div><div class="panel">`;
   if(!a.guides.length)h+=`<div class="empty">暂无数据</div>`;
-  a.guides.forEach((s,i)=>{ h+=`<div class="bar g"><div class="fill" style="width:${Math.round(s.n/maxG*100)}%"></div><div class="row"><span class="rk">${i+1}</span><span class="nm">${esc(s.name)}<span class="code">${s.cu} 位客户</span></span><span class="vv">${s.n}<small>件</small></span></div></div>`; });
+  a.guides.forEach((s,i)=>{ h+=`<div class="bar g"><div class="fill" style="width:${Math.round(s.buy/maxG*100)}%"></div><div class="row"><span class="rk">${i+1}</span><span class="nm">${esc(s.name)}<span class="code">试 ${s.tried} · 成 ${s.buy}</span></span><span class="vv">${s.rate}<small>%</small></span></div></div>`; });
   h+=`</div></section>`;
 
-  // 断码提醒
-  h+=`<section class="reveal"><div class="sec-h"><span class="t">断码提醒 · 进货风向</span><span class="meta">顾客想要却缺货</span></div><div class="panel restock">`;
-  if(!a.restock.length)h+=`<div class="empty"><div class="big">没有断码记录</div>这个时段顾客想要的都有货 👍</div>`;
-  a.restock.forEach(s=>{ h+=`<div class="bar d"><div class="fill" style="width:${Math.min(100,s.n*22)}%"></div><div class="rs-row"><span class="sw" style="background:${colorHex(s.color)}"></span><span class="nm">${esc(shortName(s.name))} <span class="code">${esc(s.color||'')} ${esc(s.spec||'')}</span></span><span class="rs-tag">想要 ${s.n}</span></div></div>`; });
+  // 成交热销款
+  h+=`<section class="reveal"><div class="sec-h"><span class="t">成交热销款</span><span class="meta">真实卖出 TOP</span></div><div class="panel">`;
+  if(!a.sold.length)h+=`<div class="empty">暂无成交</div>`;
+  a.sold.forEach((s,i)=>{ h+=`<div class="bar g"><div class="fill" style="width:${Math.round(s.n/maxSold*100)}%"></div><div class="row"><span class="rk">${i+1}</span><span class="nm">${esc(shortName(s.name))}${s.code?`<span class="code">${esc(s.code)}</span>`:''}</span><span class="vv">${s.n}<small>件</small></span></div></div>`; });
   h+=`</div></section>`;
 
-  h+=`<div class="note">数据来源于试衣/配货明细。「成交额」由有赞结算,本看板只反映店内试衣热度与配货效率。</div>`;
-  h+=`<div class="foot reveal"><a href="./guide.html">导购台</a><a href="./index.html">配货台</a></div>`;
+  // 缺货 / 断码提醒
+  h+=`<section class="reveal"><div class="sec-h"><span class="t">缺货 · 断码提醒</span><span class="meta">想要却没货</span></div><div class="panel restock">`;
+  if(!a.oosList.length)h+=`<div class="empty"><div class="big">没有缺货记录</div>这个时段想要的都有货 👍</div>`;
+  a.oosList.forEach(s=>{ h+=`<div class="bar d"><div class="fill" style="width:${Math.min(100,s.n*22)}%"></div><div class="rs-row"><span class="sw" style="background:${colorHex(s.color)}"></span><span class="nm">${esc(shortName(s.name))} <span class="code">${esc(s.color||'')} ${esc(s.spec||'')}</span></span><span class="rs-tag">${s.tag} ${s.n}</span></div></div>`; });
+  h+=`</div></section>`;
+
+  // 未归位安全网
+  if(a.lost.length){
+    h+=`<section class="reveal"><div class="sec-h"><span class="t">未归位提醒</span><span class="meta">已结束 · 未买未归位</span></div><div class="panel restock">`;
+    a.lost.slice(0,10).forEach(r=>{ h+=`<div class="bar d"><div class="rs-row"><span class="sw" style="background:${colorHex(r.color)}"></span><span class="nm">${esc(shortName(r.name))} <span class="code">${esc(r.color||'')} ${esc(r.spec||'')} · ${esc(r.customer||'')}</span></span><span class="rs-tag">待找</span></div></div>`; });
+    h+=`</div></section>`;
+  }
+
+  h+=`<div class="note">转化率 = 已购买件数 ÷ 试衣件数。成交以导购在「试衣完成」结算时的逐件标记为准；真实收款仍以有赞为准。</div>`;
+  h+=`<div class="foot reveal"><a href="./boss.html" style="background:var(--ink);color:#fff;border-color:var(--ink)">&larr; 试衣运营看板</a></div>`;
+  h+=`<div class="foot reveal" style="margin-top:10px"><a href="./guide.html">导购台</a><a href="./index.html">配货台</a><a href="./reposition.html">归位台</a></div>`;
 
   document.getElementById('app').innerHTML=h;
-  // 数字滚动
   document.querySelectorAll('[data-cnt]').forEach(el=>countUp(el,+el.dataset.cnt));
-  // 条形动画(下一帧触发宽度过渡)
-  const fills=document.querySelectorAll('.fill,.mini i');
-  fills.forEach(f=>{const w=f.style.width;f.style.width='0';requestAnimationFrame(()=>requestAnimationFrame(()=>f.style.width=w));});
+  document.querySelectorAll('.fill').forEach(f=>{const w=f.style.width;f.style.width='0';requestAnimationFrame(()=>requestAnimationFrame(()=>f.style.width=w));});
 }
 function countUp(el,target){
   const unit=el.querySelector('.unit'); const u=unit?unit.outerHTML:'';
@@ -276,25 +262,25 @@ function countUp(el,target){
   function tick(t){const p=Math.min(1,(t-t0)/dur);const e=1-Math.pow(1-p,3);el.innerHTML=Math.round(target*e)+u;if(p<1)requestAnimationFrame(tick);}
   requestAnimationFrame(tick);
 }
-
-/* ===== 演示数据 ===== */
 function demo(){
-  const now=Date.now(); const names=['Dokky【缪系菱格D0683】高定针织开衫','Dokky【俱乐部字母T-D0902】定制肌理精梳棉印花T恤','Dokky【2.0南法波点裙D0685】醋酸衬里连衣裙','Dokky【松弛廓形D0571】水洗直筒牛仔裤','Dokky【双面呢大衣D0488】羊毛阿尔巴卡'];
+  const now=Date.now();
+  const names=['Dokky【缪系菱格D0683】高定针织开衫','Dokky【俱乐部字母T-D0902】定制肌理精梳棉印花T恤','Dokky【2.0南法波点裙D0685】醋酸衬里连衣裙','Dokky【松弛廓形D0571】水洗直筒牛仔裤','Dokky【双面呢大衣D0488】羊毛阿尔巴卡'];
   const codes=['D0683','D0902','D0685','D0571','D0488'];
   const cols=['燕麦色','藏青色','复古红','奶昔粉','碳素灰','橄榄绿','卡其色'];
   const szs=['S','M','L','XL']; const gs=['王晟','于德水','小林','阿楠'];
-  const out=[]; let id=1;
-  for(let i=0;i<64;i++){
+  const out=[];
+  for(let i=0;i<70;i++){
     const si=Math.floor(Math.random()*names.length);
-    const broken=Math.random()<0.12;
-    const done=!broken&&Math.random()<0.62;
+    const broken=Math.random()<0.1;
+    const done=!broken&&Math.random()<0.7;
+    const bought=done&&Math.random()<0.45;
+    const returned=done&&!bought&&Math.random()<0.85;
+    const oos=Math.random()<0.08;
     const day=Math.random()<0.5?0:Math.floor(Math.random()*7);
-    out.push({customer:'客户'+(1+Math.floor(Math.random()*3)),guidePerson:gs[Math.floor(Math.random()*gs.length)],pickPerson:done?gs[Math.floor(Math.random()*gs.length)]:'',status:done?'配货完成':'试衣单',archive:false,styleCode:codes[si],name:names[si],color:cols[Math.floor(Math.random()*cols.length)],finalCode:broken?'':codes[si]+szs[Math.floor(Math.random()*szs.length)],spec:szs[Math.floor(Math.random()*szs.length)],qtyN:1,done,archived:false,ts:now-day*864e5-Math.floor(Math.random()*8*36e5)});
+    out.push({customer:'客户'+(1+Math.floor(Math.random()*3)),guidePerson:gs[Math.floor(Math.random()*gs.length)],status:done?'配货完成':'试衣单',color:cols[Math.floor(Math.random()*cols.length)],name:names[si],styleCode:codes[si],finalCode:broken?'':codes[si]+szs[Math.floor(Math.random()*szs.length)],spec:szs[Math.floor(Math.random()*szs.length)],qtyN:1,done,bought,returned,oos,archived:done,ts:now-day*864e5-Math.floor(Math.random()*8*36e5)});
   }
   return out;
 }
-
-/* ===== 事件 ===== */
 document.getElementById('ranges').addEventListener('click',e=>{
   const b=e.target.closest('button'); if(!b)return;
   document.querySelectorAll('#ranges button').forEach(x=>x.classList.toggle('on',x===b));
