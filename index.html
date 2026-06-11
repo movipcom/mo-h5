@@ -1,136 +1,295 @@
-import { useState, useEffect } from 'react'
-import { bitable } from '@lark-base-open/js-sdk'
-import './App.css'
-
-// ===== 你的字段名（和表格里完全一致）=====
-const F = {
-  style: '识别款式编码',
-  color: '颜色',
-  size: '规格',
-  finalCode: '最终商品编码',
-  barcode: '条形码',
-  name: '商品名称',
-}
-// 商品信息表里的字段名
-const P = {
-  style: '款式编码',
-  color: '颜色',
-  size: '规格',
-  code: '商品编码',
-  name: '商品名称',
-}
-const PRODUCT_TABLE = '商品信息表'
-
-// 把单元格值转成纯文本
-function toText(v) {
-  if (v == null) return ''
-  if (typeof v === 'string') return v
-  if (Array.isArray(v)) return v.map(toText).join('')
-  if (typeof v === 'object') return v.text || v.name || ''
-  return String(v)
-}
-
-function App() {
-  const [styleCode, setStyleCode] = useState('')
-  const [skus, setSkus] = useState([])
-  const [msg, setMsg] = useState('点开一行，扫码认款后这里会显示该款的颜色规格')
-  const [loading, setLoading] = useState(false)
-  const [activeRecord, setActiveRecord] = useState(null)
-  const [activeTable, setActiveTable] = useState(null)
-
-  // 监听当前选中的行
-  useEffect(() => {
-    const off = bitable.base.onSelectionChange(async () => {
-      try {
-        const sel = await bitable.base.getSelection()
-        if (!sel.tableId || !sel.recordId) return
-        const table = await bitable.base.getTableById(sel.tableId)
-        setActiveTable(table)
-        setActiveRecord(sel.recordId)
-        const styleField = await table.getFieldByName(F.style)
-        const sc = toText(await styleField.getValue(sel.recordId))
-        setStyleCode(sc)
-        if (sc) loadSkus(sc)
-        else { setSkus([]); setMsg('当前行还没有识别款式编码，请先扫码') }
-      } catch (e) {
-        setMsg('读取当前行失败：' + e.message)
-      }
-    })
-    return () => off()
-  }, [])
-
-  // 根据款式编码，从商品信息表查出该款所有颜色规格
-  async function loadSkus(sc) {
-    setLoading(true); setMsg('正在查找 ' + sc + ' 的颜色规格…')
-    try {
-      const pt = await bitable.base.getTableByName(PRODUCT_TABLE)
-      const styleF = await pt.getFieldByName(P.style)
-      const colorF = await pt.getFieldByName(P.color)
-      const sizeF = await pt.getFieldByName(P.size)
-      const codeF = await pt.getFieldByName(P.code)
-      const nameF = await pt.getFieldByName(P.name)
-      const { recordIds } = await pt.getRecords({ pageSize: 5000 })
-      const list = []
-      for (const rid of recordIds) {
-        const s = toText(await styleF.getValue(rid))
-        if (s !== sc) continue
-        list.push({
-          color: toText(await colorF.getValue(rid)),
-          size: toText(await sizeF.getValue(rid)),
-          code: toText(await codeF.getValue(rid)),
-          name: toText(await nameF.getValue(rid)),
-        })
-      }
-      setSkus(list)
-      setMsg(list.length ? `共 ${list.length} 个颜色规格，点一个：` : '没找到该款的颜色规格')
-    } catch (e) {
-      setMsg('查找失败：' + e.message)
-    }
-    setLoading(false)
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>MO · 配货台</title>
+<style>
+  :root{
+    --bg:#F3F1EC; --surface:#FFFFFF; --surface-2:#FAF9F5;
+    --ink:#16140F; --ink-2:#7C776C; --ink-3:#ABA69B; --line:#E8E5DC; --line-2:#DCD8CD;
+    --done:#3F6B53; --done-bg:#EAF0EB;
+    --todo:#8C7A4E; --todo-bg:#F4EFE2;
+    --c1:#5A6B7A; --c2:#8A6B74; --c3:#8A7350; --c4:#4E6F69;
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono","Roboto Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Microsoft YaHei",system-ui,sans-serif;
   }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;}
+  body{background:#E4E2DC;font-family:var(--sans);color:var(--ink);-webkit-font-smoothing:antialiased;display:flex;justify-content:center;letter-spacing:-.005em;}
+  #app{width:100%;max-width:440px;height:100dvh;height:100vh;background:var(--bg);display:flex;flex-direction:column;position:relative;overflow:hidden;box-shadow:0 0 0 1px rgba(0,0,0,.03),0 30px 70px -30px rgba(0,0,0,.35);}
+  .eyebrow{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-3);font-weight:600;}
 
-  // 点某个颜色规格 → 写回当前行
-  async function pick(sku) {
-    if (!activeTable || !activeRecord) return
-    try {
-      setMsg('正在写入…')
-      await activeTable.setCellValue((await activeTable.getFieldByName(F.color)).id, activeRecord, sku.color)
-      await activeTable.setCellValue((await activeTable.getFieldByName(F.size)).id, activeRecord, sku.size)
-      await activeTable.setCellValue((await activeTable.getFieldByName(F.finalCode)).id, activeRecord, sku.code)
-      await activeTable.setCellValue((await activeTable.getFieldByName(F.barcode)).id, activeRecord, sku.code)
-      await activeTable.setCellValue((await activeTable.getFieldByName(F.name)).id, activeRecord, sku.name)
-      setMsg(`✅ 已选 ${sku.color}/${sku.size}，商品编码 ${sku.code}`)
-    } catch (e) {
-      setMsg('写入失败：' + e.message)
-    }
-  }
+  header{flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--line);padding:18px 20px 0;}
+  .top{display:flex;align-items:center;gap:13px;}
+  .wordmark{width:40px;height:40px;border-radius:2px;flex:0 0 auto;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:700;font-size:14px;letter-spacing:.04em;}
+  .htxt{flex:1;min-width:0;}
+  .htxt h1{margin:5px 0 0;font-size:19px;font-weight:600;letter-spacing:-.02em;}
+  .htxt .who{font-size:11px;font-weight:600;color:var(--ink-2);border:1px solid var(--line-2);padding:2px 9px;border-radius:99px;letter-spacing:0;margin-left:9px;cursor:pointer;}
+  .pill{display:inline-flex;align-items:center;gap:6px;height:25px;padding:0 11px;border-radius:99px;font-size:10.5px;font-weight:600;letter-spacing:.02em;border:1px solid var(--line-2);color:var(--ink-2);cursor:pointer;background:var(--surface);}
+  .pill .led{width:5px;height:5px;border-radius:50%;background:var(--ink-3);}
+  .pill.live{color:var(--done);border-color:#CFE0D3;} .pill.live .led{background:var(--done);}
+  .pill.demo{color:var(--todo);border-color:#E6DAB9;} .pill.demo .led{background:var(--todo);}
 
-  return (
-    <div style={{ padding: 16, fontFamily: 'system-ui', maxWidth: 480 }}>
-      <h2 style={{ fontSize: 18, marginBottom: 8 }}>扫码选款</h2>
-      <div style={{ fontSize: 13, color: '#666', marginBottom: 4 }}>
-        当前款：<b>{styleCode || '（未识别）'}</b>
-      </div>
-      <div style={{ fontSize: 13, color: '#1456f0', marginBottom: 12 }}>{msg}</div>
+  .seg{display:flex;gap:24px;margin-top:16px;}
+  .seg button{border:none;background:none;padding:0 0 14px;font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--ink-3);cursor:pointer;display:flex;align-items:center;gap:8px;position:relative;}
+  .seg button .badge{font-family:var(--mono);font-size:11px;font-weight:600;min-width:19px;height:19px;border-radius:99px;padding:0 6px;display:inline-grid;place-items:center;background:var(--line);color:var(--ink-2);}
+  .seg button.on{color:var(--ink);}
+  .seg button.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1.5px;background:var(--ink);}
+  .seg button.on .badge{background:var(--ink);color:#fff;}
 
-      {loading && <div>加载中…</div>}
+  .subbar{flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--line);padding:11px 20px;}
+  .chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;}
+  .chips::-webkit-scrollbar{display:none;}
+  .chip-f{flex:0 0 auto;height:31px;padding:0 14px;border-radius:99px;border:1px solid var(--line-2);background:var(--surface);font-size:12.5px;font-weight:500;color:var(--ink-2);cursor:pointer;display:flex;align-items:center;gap:7px;letter-spacing:-.01em;}
+  .chip-f .av{width:16px;height:16px;border-radius:2px;color:#fff;font-size:9px;font-weight:700;display:grid;place-items:center;}
+  .chip-f.on{background:var(--ink);border-color:var(--ink);color:#fff;}
+  .chip-f .own{color:var(--ink-3);margin:0 3px;font-weight:400;}
+  .chip-f.on .own{color:rgba(255,255,255,.5);}
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-        {skus.map((sku, i) => (
-          <button
-            key={i}
-            onClick={() => pick(sku)}
-            style={{
-              padding: '10px 14px', borderRadius: 10, border: '1px solid #ddd',
-              background: '#fff', cursor: 'pointer', fontSize: 14,
-            }}
-          >
-            {sku.color} / {sku.size}
-          </button>
-        ))}
-      </div>
+  main{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 18px calc(28px + env(safe-area-inset-bottom));}
+  .grp{margin-bottom:8px;}
+  .grp-h{display:flex;align-items:center;gap:10px;padding:14px 4px 10px;}
+  .grp-h .av{width:22px;height:22px;border-radius:2px;color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center;flex:0 0 auto;}
+  .grp-h .gn{font-size:14px;font-weight:600;letter-spacing:-.01em;}
+  .grp-h .gguide{font-size:11px;color:var(--ink-2);font-weight:500;}
+  .grp-h .gguide::before{content:"· ";color:var(--ink-3);}
+  .grp-h .gq{font-family:var(--mono);font-size:11px;color:var(--ink-3);}
+  .grp-h .gpick{margin-left:auto;height:30px;padding:0 14px;border-radius:2px;border:1px solid var(--ink);background:var(--ink);color:#fff;font-size:11px;font-weight:600;letter-spacing:.04em;cursor:pointer;}
+  .grp-h .gpick:active{opacity:.85;}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:16px;margin-bottom:12px;}
+  .card.done{opacity:.66;}
+  .c-top{display:flex;align-items:center;gap:10px;}
+  .c-cust{display:flex;align-items:center;gap:8px;}
+  .c-cust .av{width:24px;height:24px;border-radius:2px;color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center;}
+  .c-cust .cn{font-size:14px;font-weight:600;letter-spacing:-.01em;}
+  .c-guide{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-2);}
+  .c-guide .lbl{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);font-weight:600;}
+  .c-name{font-size:14px;font-weight:600;letter-spacing:-.012em;margin-top:13px;line-height:1.35;}
+  .c-attrs{display:flex;align-items:center;gap:10px;margin-top:9px;flex-wrap:wrap;}
+  .attr{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2);font-weight:500;}
+  .swatch{width:12px;height:12px;border-radius:50%;flex:0 0 auto;box-shadow:inset 0 0 0 1px rgba(0,0,0,.13);}
+  .size-pill{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--ink);border:1px solid var(--line-2);border-radius:2px;padding:2px 8px;letter-spacing:.04em;}
+
+  .bc-wrap{margin-top:14px;background:var(--surface-2);border:1px solid var(--line);border-radius:3px;padding:14px 12px 11px;display:flex;flex-direction:column;align-items:center;gap:9px;}
+  .bc{width:100%;max-width:250px;height:50px;}
+  .bcimg{max-width:250px;max-height:64px;background:#fff;}
+  .bc-code{font-family:var(--mono);font-size:13px;letter-spacing:.18em;color:var(--ink);font-weight:600;}
+  .bc-code.none{color:#8E3B36;letter-spacing:.02em;}
+
+  .status-btn{width:100%;height:50px;margin-top:14px;border-radius:2px;border:none;font-size:14px;font-weight:600;letter-spacing:.06em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;background:var(--ink);color:#fff;}
+  .status-btn:active{opacity:.9;}
+  .status-done{width:100%;height:46px;margin-top:14px;border-radius:2px;border:1px solid var(--line-2);background:var(--done-bg);color:var(--done);font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;}
+
+  .state{padding:62px 30px;text-align:center;color:var(--ink-3);}
+  .state svg{margin-bottom:16px;opacity:.4;}
+  .state h4{margin:0 0 7px;color:var(--ink-2);font-size:14px;font-weight:600;}
+  .state p{margin:0;font-size:12.5px;line-height:1.7;}
+  .skel{background:var(--surface);border:1px solid var(--line);border-radius:3px;height:150px;margin-bottom:12px;position:relative;overflow:hidden;}
+  .skel::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(0,0,0,.03),transparent);animation:sh 1.3s infinite;}
+  @keyframes sh{100%{transform:translateX(100%)}}
+  .errbar{background:var(--todo-bg);color:#7A6633;font-size:12px;padding:11px 14px;border-radius:3px;margin-bottom:14px;line-height:1.6;border:1px solid #E6DAB9;}
+
+  .toast{position:absolute;left:50%;bottom:40px;transform:translateX(-50%) translateY(8px);background:var(--ink);color:#fff;font-size:12.5px;padding:11px 18px;border-radius:2px;opacity:0;pointer-events:none;transition:.2s;z-index:70;white-space:nowrap;max-width:90%;overflow:hidden;text-overflow:ellipsis;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  @media (prefers-reduced-motion:reduce){.skel::after{animation:none;}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="top">
+      <div class="wordmark">MO</div>
+      <div class="htxt"><div class="eyebrow">Picking Station · 小仓配货台</div><h1>配货台<span class="who" id="meName" onclick="setOperator()">点此设置姓名</span></h1></div>
+      <span class="pill" id="srcPill" onclick="refresh()"><span class="led"></span><span id="srcTxt">连接中</span></span>
     </div>
-  )
+    <div class="seg" id="seg">
+      <button data-s="todo" class="on" onclick="setSeg('todo')">待配货 <span class="badge" id="bTodo">0</span></button>
+      <button data-s="done" onclick="setSeg('done')">已配完 <span class="badge" id="bDone">0</span></button>
+    </div>
+  </header>
+
+  <div class="subbar"><div class="chips" id="custChips"></div></div>
+
+  <main id="list"></main>
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+const API='/api/feishu';
+const BARCODE_CDN='https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js';
+const FIELD={ id:'明细ID', customer:'客户', guide:'导购', guidePerson:'导购员', status:'状态', picker:'捡货员', pickPerson:'配货员', archive:'试衣完成',
+  styleCode:'识别款式编码', name:'商品名称', scanCode:'扫码商品编码', color:'颜色',
+  finalCode:'最终商品编码', spec:'规格', barcode:'条形码', qty:'数量', barcodeImg:'条形码图形' };
+const ST_TODO='试衣单', ST_DONE='配货完成';
+let RAW=[], seg='todo', cust='all', LIVE=false;
+let OP=''; try{OP=localStorage.getItem('mo_operator')||'';}catch(e){}
+function gname(r){return r.guidePerson||'';}   // 只认真实导购姓名；为空则不显示（不再退回创建人MO试衣）
+function applyOP(){const el=document.getElementById('meName');if(el)el.textContent=OP||'点此设置姓名';}
+function setOperator(){const n=prompt('请输入你的名字（记录为配货员）',OP||'');if(n!=null){OP=n.trim();try{localStorage.setItem('mo_operator',OP);}catch(e){}applyOP();render();}}
+
+function colorHex(n){
+  n=String(n||'');
+  const m=[['黑','#211E19'],['藏青','#33415C'],['深空','#3B3B40'],['烟','#5B5750'],['碳','#3E3B36'],['灰','#9C988E'],
+  ['白','#ECE9E1'],['麻','#BCAC91'],['燕麦','#C9B79A'],['卡其','#B7A083'],['咖','#8A6A4E'],['棕','#8A6A4E'],['茶','#6E5847'],
+  ['红','#AE463E'],['粉','#D2A2AB'],['樱','#D2A2AB'],['藕','#9F8290'],['紫','#9A7E9C'],['黄','#D6C277'],['酪','#D8CE9E'],
+  ['牛仔','#5C7494'],['蓝','#6F8CAE'],['绿','#7C8264'],['橄榄','#7C8264']];
+  for(const [k,v] of m) if(n.includes(k)) return v;
+  return '#BBB5A9';
+}
+function cell(v){
+  if(v==null)return'';
+  if(Array.isArray(v)){
+    if(v.length&&typeof v[0]==='object'){
+      if('text'in v[0])return v.map(s=>s.text).join('');
+      if('name'in v[0])return v.map(s=>s.name).join('、');
+      return v.map(x=>x.text||x.name||'').join('、');
+    } return v.join('、');
+  }
+  if(typeof v==='object')return v.text||v.name||''; return v;
+}
+function num(v){const n=parseFloat(String(cell(v)).replace(/[^\d.\-]/g,''));return isNaN(n)?0:n;}
+function imgTokens(v){ return Array.isArray(v)? v.map(x=>x&&(x.file_token||x.fileToken)).filter(Boolean):[]; }
+function jsq(s){return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
+async function post(body){
+  const res=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','X-Proxy-Key':window.__PROXY_KEY||''},body:JSON.stringify(body)});
+  const j=await res.json(); if(!j.ok)throw new Error(j.error||'请求失败'); return j;
+}
+let tt;function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),1700);}
+
+function normalize(items){
+  return items.map(it=>{
+    const f=it.fields||{},g=k=>f[FIELD[k]],r={_id:it.recordId,_raw:f};
+    for(const k in FIELD)r[k]=cell(g(k));
+    r.qtyN=num(g('qty'))||1; r.todo=r.status!==ST_DONE;
+    r.archived=(r.archive===true||r.archive==='true');
+    r.imgTokens=imgTokens(g('barcodeImg'));
+    r.bcText=r.finalCode||r.barcode||r.scanCode||'';
+    return r;
+  });
+}
+async function refresh(){
+  document.getElementById('srcTxt').textContent='连接中';
+  try{
+    const res=await fetch(API+'?action=list',{headers:{'X-Proxy-Key':window.__PROXY_KEY||''}});
+    const j=await res.json(); if(!j.ok)throw new Error(j.error||'代理异常');
+    RAW=normalize(j.items); LIVE=true; setSource(true);
+  }catch(e){ RAW=normalize(DEMO); LIVE=false; setSource(false,e.message); }
+  applyOP(); render();
+}
+function setSource(live,err){
+  const p=document.getElementById('srcPill');p.className='pill '+(live?'live':'demo');
+  document.getElementById('srcTxt').textContent=live?'已连接飞书':'演示数据'; window.__lastErr=live?null:err;
 }
 
-export default App
+const slotColors={'客户1':'var(--c1)','客户2':'var(--c2)','客户3':'var(--c3)','客户4':'var(--c4)'};
+function slotColor(s){return slotColors[s]||'#8A857B';}
+function av(s){return `<span class="av" style="background:${slotColor(s)}">${(s||'·').replace(/[^0-9]/g,'')||(s||'·')[0]}</span>`;}
+function distinctCust(){return [...new Set(RAW.map(r=>r.customer).filter(Boolean))];}
+function setSeg(s){seg=s;document.querySelectorAll('.seg button').forEach(b=>b.classList.toggle('on',b.dataset.s===s));render();}
+function setCust(c){cust=c;render();}
+
+function render(){
+  const vis=RAW.filter(r=>!r.archived);
+  document.getElementById('bTodo').textContent=vis.filter(r=>r.todo).length;
+  document.getElementById('bDone').textContent=vis.filter(r=>!r.todo).length;
+  const segRows=vis.filter(r=> seg==='todo'?r.todo:!r.todo);
+  // 试衣单 = 导购 × 客户
+  const pairs=[]; const seen=new Set();
+  segRows.forEach(r=>{ const k=gname(r)+'\u0001'+(r.customer||''); if(!seen.has(k)){seen.add(k);pairs.push({key:k,guide:gname(r),customer:r.customer||''});} });
+  document.getElementById('custChips').innerHTML=
+    `<button class="chip-f ${cust==='all'?'on':''}" onclick="setCust('all')">全部</button>`+
+    pairs.map(p=>`<button class="chip-f ${cust===p.key?'on':''}" onclick="setCust('${jsq(p.key)}')">${p.guide?p.guide+'<span class="own">的</span>':''}${av(p.customer)}${p.customer}</button>`).join('');
+
+  let rows=segRows;
+  if(cust!=='all') rows=rows.filter(r=>(gname(r)+'\u0001'+(r.customer||''))===cust);
+  const list=document.getElementById('list');
+  if(!RAW.length){list.innerHTML='<div class="skel"></div>'.repeat(3);return;}
+  let head=''; if(!LIVE)head=`<div class="errbar">演示数据 — 条形码图形由「最终商品编码」本地生成；连飞书后优先显示记录里上传的条形码图形附件，状态点「配货完成」实时写回。</div>`;
+  if(!rows.length){
+    list.innerHTML=head+`<div class="state"><svg width="38" height="38" viewBox="0 0 24 24" fill="none"><path d="M5 7h14l-1.2 11a2 2 0 01-2 1.8H8.2a2 2 0 01-2-1.8L5 7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M9 7a3 3 0 016 0" stroke="currentColor" stroke-width="1.4"/></svg><h4>${seg==='todo'?'没有待配货':'还没有已配完'}</h4><p>${seg==='todo'?'导购下了试衣单会出现在这里':'配完的会归到这里'}</p></div>`;
+    return;
+  }
+  const groups={};
+  rows.forEach(r=>{ const k=gname(r)+'\u0001'+(r.customer||''); (groups[k]=groups[k]||{guide:gname(r),customer:r.customer||'',items:[]}).items.push(r); });
+  let body=head;
+  Object.values(groups).forEach(g=>{
+    body+=`<div class="grp"><div class="grp-h">${av(g.customer)}<span class="gn">${g.guide?g.guide+'的':''}${g.customer||'未指定'}</span><span class="gq">${g.items.length} 件</span>`;
+    if(seg==='todo') body+=`<button class="gpick" onclick='pickGroup("${jsq(g.guide)}","${jsq(g.customer)}")'>全部配完</button>`;
+    body+=`</div>`+g.items.map(card).join('')+`</div>`;
+  });
+  list.innerHTML=body;
+  renderBarcodes();
+}
+
+function card(r){
+  const noFinal=!r.finalCode;
+  const img = (LIVE && r.imgTokens[0])
+    ? `<img class="bcimg" style="display:none" src="${API}?action=media&file_token=${encodeURIComponent(r.imgTokens[0])}" alt="条形码图形" onload="this.style.display='block';this.previousElementSibling.style.display='none'" onerror="this.remove()">`
+    : '';
+  const bc = r.bcText
+    ? `<div class="bc-wrap"><svg class="bc" data-code="${r.bcText}"></svg>${img}<div class="bc-code">${r.bcText}</div></div>`
+    : `<div class="bc-wrap"><div class="bc-code none">无条码 · 断码</div></div>`;
+  const action = r.todo
+    ? `<button class="status-btn" onclick='pickOne("${r._id}")'><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4L19 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>配货完成</button>`
+    : `<div class="status-done" onclick='setStatus(["${r._id}"],"${ST_TODO}")'><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4L19 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>已配完${r.pickPerson?' · '+r.pickPerson:''} · 点可退回</div>`;
+  return `<div class="card ${r.todo?'':'done'}">
+    <div class="c-name">${r.name||'未匹配'}</div>
+    <div class="c-attrs">
+      ${r.color?`<span class="attr"><span class="swatch" style="background:${colorHex(r.color)}"></span>${r.color}</span>`:''}
+      ${r.spec?`<span class="size-pill">${r.spec}</span>`:''}
+      ${r.qtyN>1?`<span class="attr">×${r.qtyN}</span>`:''}
+    </div>
+    ${bc}
+    ${action}
+  </div>`;
+}
+
+/* 条形码本地生成（JsBarcode 按需加载） */
+let bcLoaded=false;
+function loadBC(){return new Promise(res=>{ if(window.JsBarcode){bcLoaded=true;return res(true);} const s=document.createElement('script');s.src=BARCODE_CDN;s.onload=()=>{bcLoaded=true;res(true);};s.onerror=()=>res(false);document.head.appendChild(s);});}
+async function renderBarcodes(){
+  if(!window.JsBarcode){ await loadBC(); }
+  if(!window.JsBarcode) return; // 离线预览：仅显示编码文字
+  document.querySelectorAll('svg.bc[data-code]').forEach(el=>{
+    if(el.dataset.done)return; el.dataset.done='1';
+    try{ window.JsBarcode(el, el.dataset.code, {format:'CODE128', height:46, width:1.6, displayValue:false, margin:0, background:'transparent', lineColor:'#16140F'}); }catch(e){}
+  });
+}
+
+/* 状态：配货完成 / 退回 */
+async function pickOne(id){ await setStatus([id], ST_DONE); }
+async function pickGroup(guide,customer){ await setStatus(RAW.filter(r=>gname(r)===guide&&r.customer===customer&&r.todo).map(r=>r._id), ST_DONE); }
+async function setStatus(ids, status){
+  if(!ids.length)return;
+  if(status===ST_DONE && !OP){ setOperator(); if(!OP){ toast('请先设置你的名字再配货'); return; } }
+  const f={[FIELD.status]:status}; if(status===ST_DONE && OP) f[FIELD.pickPerson]=OP;
+  if(!LIVE){ ids.forEach(id=>{const r=RAW.find(x=>x._id===id);r.status=status;r.todo=status!==ST_DONE;if(status===ST_DONE)r.pickPerson=OP;}); toast(status===ST_DONE?'已配完（演示）':'已退回'); render(); return; }
+  toast('提交中…');
+  try{
+    for(const id of ids){
+      await post({action:'update',recordId:id,fields:f});
+      const r=RAW.find(x=>x._id===id); r.status=status; r.todo=status!==ST_DONE; if(status===ST_DONE)r.pickPerson=OP;
+    }
+    toast(status===ST_DONE?`已配完 ${ids.length} 件`:'已退回'); render();
+  }catch(e){ toast('失败：'+e.message); }
+}
+
+/* 演示数据 */
+const DEMO=[
+  ['客户1','小满','Dokky【俱乐部字母T-D0902】印花字母短袖T恤','藏青','M','D0902M2',1, ST_TODO],
+  ['客户1','小满','Dokky【南法波点裙D0685】小复古百褶半身裙','深藏青','F','D0685F1',1, ST_TODO],
+  ['客户1','阿May','Dokky【缪系菱格D0683】复古菱格Polo领针织衫','燕麦色','L','D0683L1',1, ST_TODO],
+  ['客户2','阿May','LIZE【L1749】亚麻直筒裤','咖色','L','L1749L6',2, ST_TODO],
+  ['客户2','阿May','Dokky「刚需小U领」显瘦坑条正肩T恤D0005','热颂红','M','D0005M2',1, ST_DONE],
+].map((a,i)=>({recordId:'demo'+i,fields:{
+  [FIELD.id]:i+1,[FIELD.customer]:a[0],[FIELD.guidePerson]:a[1],[FIELD.name]:a[2],
+  [FIELD.color]:a[3],[FIELD.spec]:a[4],[FIELD.finalCode]:a[5],[FIELD.barcode]:a[5],[FIELD.qty]:a[6],[FIELD.status]:a[7],
+  [FIELD.pickPerson]:a[7]===ST_DONE?'阿强':'',
+}}));
+
+refresh();
+</script>
+</body>
+</html>
