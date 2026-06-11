@@ -17,7 +17,10 @@
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{margin:0;height:100%;}
   body{background:#E4E2DC;font-family:var(--sans);color:var(--ink);-webkit-font-smoothing:antialiased;display:flex;justify-content:center;letter-spacing:-.005em;}
-  #app{width:100%;max-width:440px;height:100dvh;height:100vh;background:var(--bg);display:flex;flex-direction:column;position:relative;overflow:hidden;box-shadow:0 0 0 1px rgba(0,0,0,.03),0 30px 70px -30px rgba(0,0,0,.35);}
+  #app{width:100%;max-width:440px;height:100dvh;height:100vh;background:var(--bg);display:flex;flex-direction:column;position:relative;overflow:hidden;box-shadow:0 0 0 1px rgba(0,0,0,.03),0 30px 70px -30px rgba(0,0,0,.35);animation:appIn .55s cubic-bezier(.2,.7,.3,1) both;}
+  @keyframes appIn{from{opacity:0;transform:translateY(7px) scale(.994);}to{opacity:1;transform:none;}}
+  .grain{position:fixed;inset:0;z-index:9998;pointer-events:none;opacity:.4;mix-blend-mode:multiply;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");}
+  @media (prefers-reduced-motion:reduce){#app{animation:none;}}
   .eyebrow{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-3);font-weight:600;}
 
   header{flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--line);padding:18px 20px 0;}
@@ -97,6 +100,7 @@
 </style>
 </head>
 <body>
+<div class="grain"></div>
 <div id="app">
   <header>
     <div class="top">
@@ -265,15 +269,13 @@ async function setStatus(ids, status){
   if(!ids.length)return;
   if(status===ST_DONE && !OP){ setOperator(); if(!OP){ toast('请先设置你的名字再配货'); return; } }
   const f={[FIELD.status]:status}; if(status===ST_DONE && OP) f[FIELD.pickPerson]=OP;
-  if(!LIVE){ ids.forEach(id=>{const r=RAW.find(x=>x._id===id);r.status=status;r.todo=status!==ST_DONE;if(status===ST_DONE)r.pickPerson=OP;}); toast(status===ST_DONE?'已配完（演示）':'已退回'); render(); return; }
-  toast('提交中…');
-  try{
-    for(const id of ids){
-      await post({action:'update',recordId:id,fields:f});
-      const r=RAW.find(x=>x._id===id); r.status=status; r.todo=status!==ST_DONE; if(status===ST_DONE)r.pickPerson=OP;
-    }
-    toast(status===ST_DONE?`已配完 ${ids.length} 件`:'已退回'); render();
-  }catch(e){ toast('失败：'+e.message); }
+  // —— 乐观更新：界面立刻变，飞书后台同步 ——
+  const prev=ids.map(id=>{ const r=RAW.find(x=>x._id===id); return {r,status:r.status,todo:r.todo,pickPerson:r.pickPerson}; });
+  ids.forEach(id=>{ const r=RAW.find(x=>x._id===id); r.status=status; r.todo=status!==ST_DONE; if(status===ST_DONE)r.pickPerson=OP; else r.pickPerson=''; });
+  toast(status===ST_DONE?`已配完 ${ids.length} 件`:'已退回'); render();
+  if(!LIVE)return;
+  Promise.all(ids.map(id=>post({action:'update',recordId:id,fields:f})))
+    .catch(e=>{ prev.forEach(p=>{p.r.status=p.status;p.r.todo=p.todo;p.r.pickPerson=p.pickPerson;}); toast('同步失败，已还原：'+(e.message||e)); render(); });
 }
 
 /* 演示数据 */

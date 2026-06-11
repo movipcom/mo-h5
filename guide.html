@@ -18,7 +18,15 @@
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{margin:0;height:100%;}
   body{background:#E4E2DC;font-family:var(--sans);color:var(--ink);-webkit-font-smoothing:antialiased;display:flex;justify-content:center;letter-spacing:-.005em;}
-  #app{width:100%;max-width:440px;height:100dvh;height:100vh;background:var(--bg);display:flex;flex-direction:column;position:relative;overflow:hidden;box-shadow:0 0 0 1px rgba(0,0,0,.03),0 30px 70px -30px rgba(0,0,0,.35);}
+  #app{width:100%;max-width:440px;height:100dvh;height:100vh;background:var(--bg);display:flex;flex-direction:column;position:relative;overflow:hidden;box-shadow:0 0 0 1px rgba(0,0,0,.03),0 30px 70px -30px rgba(0,0,0,.35);animation:appIn .55s cubic-bezier(.2,.7,.3,1) both;}
+  @keyframes appIn{from{opacity:0;transform:translateY(7px) scale(.994);}to{opacity:1;transform:none;}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(9px);}to{opacity:1;transform:none;}}
+  .reveal{animation:fadeUp .5s cubic-bezier(.2,.7,.3,1) both;}
+  .grain{position:fixed;inset:0;z-index:9998;pointer-events:none;opacity:.4;mix-blend-mode:multiply;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");}
+  @media (prefers-reduced-motion:reduce){#app,.reveal{animation:none;}}
+  .citem.syncing{position:relative;}
+  .syncdot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--done);margin-left:7px;vertical-align:middle;animation:sdot 1s ease-in-out infinite;}
+  @keyframes sdot{0%,100%{opacity:.3;transform:scale(.8);}50%{opacity:1;transform:scale(1);}}
   .eyebrow{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-3);font-weight:600;}
 
   header{flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--line);padding:18px 20px 17px;}
@@ -113,7 +121,8 @@
   .scan-top .stitle{flex:1;font-size:13px;font-weight:600;letter-spacing:.02em;}
   .scan-top .stitle .av{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:2px;color:#fff;font-size:10px;font-weight:700;vertical-align:-3px;margin-right:6px;}
   .scan-top .cnt{font-family:var(--mono);font-size:12px;color:#C8B98C;letter-spacing:.04em;}
-  .scan-close{width:34px;height:34px;border-radius:2px;border:none;background:rgba(255,255,255,.12);color:#fff;display:grid;place-items:center;cursor:pointer;}
+  .scan-close{width:34px;height:34px;border-radius:2px;border:none;background:rgba(255,255,255,.12);color:#fff;display:grid;place-items:center;cursor:pointer;transition:.2s;}
+  #torchBtn.on{background:#F5D67A;color:#16140F;box-shadow:0 0 16px rgba(245,214,122,.6);}
   .scan-view{flex:1;position:relative;overflow:hidden;display:grid;place-items:center;}
   #reader{width:100%;height:100%;}
   #reader video{width:100%!important;height:100%!important;object-fit:cover!important;}
@@ -188,6 +197,7 @@
 </style>
 </head>
 <body>
+<div class="grain"></div>
 <div id="app">
   <header>
     <div class="top">
@@ -218,6 +228,7 @@
     <div class="scan-top">
       <div class="stitle" id="scanTitle"></div>
       <div class="cnt" id="scanCnt">+0</div>
+      <button class="scan-close" id="torchBtn" onclick="toggleTorch()" title="补光"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M13 2L4.5 13H11l-1 9 8.5-12H12l1-8z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
       <button class="scan-close" onclick="closeScan()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
     </div>
     <div class="scan-view" id="scanView">
@@ -327,7 +338,9 @@ async function refresh(){
   try{
     const res=await fetch(API+'?action=list',{headers:{'X-Proxy-Key':window.__PROXY_KEY||''}});
     const j=await res.json(); if(!j.ok)throw new Error(j.error||'代理异常');
-    RAW=normalize(j.items); LIVE=true; setSource(true);
+    const pending=RAW.filter(r=>r._pending&&String(r._id).startsWith('tmp'));   // 保留同步中的项
+    RAW=normalize(j.items); if(pending.length)RAW.unshift(...pending);
+    LIVE=true; setSource(true);
   }catch(e){ RAW=normalize(DEMO); LIVE=false; setSource(false,e.message); }
   applyOP();
   const busy=slots().find(s=>activeOf(s).length); if(busy)slot=busy;
@@ -384,14 +397,15 @@ async function archiveSlot(){
   const items=allOf(slot);
   if(!items.length){toast('当前没有可结束的试衣单');return;}
   if(!confirm(`结束「${slot}」的接待？\n本单 ${items.length} 件会从 App 移除，飞书表里打勾保留存档（不删除）。`))return;
-  if(!LIVE){ items.forEach(r=>r.archived=true); extraSlots=extraSlots.filter(x=>x!==slot); slot='客户1'; toast('已结束接待（演示）'); render(); return; }
-  toast('结束中…');
-  try{
-    for(const r of items){ await post({action:'update',recordId:r._id,fields:{[FIELD.archive]:true}}); r.archived=true; }
-    extraSlots=extraSlots.filter(x=>x!==slot);
-    const next=slots().find(s=>activeOf(s).length===0)||'客户1'; slot=next;
-    toast('接待已结束 · 已存档到飞书'); render();
-  }catch(e){ toast('结束失败：'+e.message); }
+  const done=slot;
+  items.forEach(r=>r.archived=true);   // 立刻移除、释放槽位
+  extraSlots=extraSlots.filter(x=>x!==done);
+  slot=slots().find(s=>activeOf(s).length===0)||'客户1';
+  toast(done+' 接待已结束'); render();
+  if(!LIVE)return;
+  const real=items.filter(r=>!String(r._id).startsWith('tmp'));
+  Promise.all(real.map(r=>post({action:'update',recordId:r._id,fields:{[FIELD.archive]:true}})))
+    .catch(e=>{ items.forEach(r=>r.archived=false); toast('存档同步失败，已还原：'+(e.message||e)); render(); });
 }
 function pickSlot(s){slot=s;render();}
 function newGuest(){
@@ -434,9 +448,9 @@ function citem(r){
     ? `<div class="stepper"><button onclick='stepItem("${r._id}",-1)'>−</button><span id="q_${r._id}">${r.qtyN}</span><button onclick='stepItem("${r._id}",1)'>+</button></div>
        <button class="rm" onclick='removeItem("${r._id}")' aria-label="移除"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>`
     : `<span class="doneqty">×${r.qtyN}</span>`;
-  return `<div class="citem ${r.todo?'':'is-done'}">
+  return `<div class="citem ${r.todo?'':'is-done'} ${r._pending?'syncing':''}">
     <div class="cbody" onclick='openSheet("${r._id}")'>
-      <div class="nm">${r.name||'未匹配'}</div>
+      <div class="nm">${r.name||'未匹配'}${r._pending?'<span class="syncdot" title="同步中"></span>':''}</div>
       <div class="sub">${r.color?`<span class="attr"><span class="swatch" style="background:${colorHex(r.color)}"></span>${r.color}</span>`:''}${r.spec?`<span class="size-pill">${r.spec}</span>`:''}<span class="skucode ${noFinal?'none':''}">${r.finalCode||'断码'}</span>${stat}</div>
     </div>
     ${right}
@@ -450,7 +464,8 @@ function beep(){ try{ actx=actx||new (window.AudioContext||window.webkitAudioCon
 function updateScanTop(){ document.getElementById('scanTitle').innerHTML=`为 ${av(slot)}${slot} 扫码`; document.getElementById('scanCnt').textContent=`+${addedCount}`; }
 
 async function openScan(){
-  addedCount=0; lastCode=''; paused=false; updateScanTop();
+  addedCount=0; lastCode=''; paused=false; torchOn=false; updateScanTop();
+  const tb=document.getElementById('torchBtn'); if(tb)tb.classList.remove('on');
   document.getElementById('confirmCard').classList.remove('show');
   document.getElementById('manualBox').classList.remove('show');
   document.getElementById('scanView').style.display='';
@@ -466,6 +481,13 @@ async function openScan(){
     await h5q.start({facingMode:'environment'},{fps:10,qrbox:{width:260,height:150}},onDecode,()=>{});
     scanning=true;
   }catch(e){ manualMode('无法打开相机（'+(e.message||e)+'），可手动输入'); }
+}
+let torchOn=false;
+async function toggleTorch(){
+  if(!h5q||!scanning){ toast('请先开启相机'); return; }
+  torchOn=!torchOn;
+  try{ await h5q.applyVideoConstraints({advanced:[{torch:torchOn}]}); document.getElementById('torchBtn').classList.toggle('on',torchOn); if(navigator.vibrate)navigator.vibrate(12); }
+  catch(e){ torchOn=false; document.getElementById('torchBtn').classList.remove('on'); toast('该设备/浏览器不支持补光'); }
 }
 function onDecode(text){
   if(paused)return;
@@ -529,30 +551,46 @@ function cfPickSize(s){ cf.size=s; renderConfirm(); }
 function cfQtyStep(d){ cf.qty=Math.max(1,cf.qty+d); document.getElementById('cfQty').textContent=cf.qty; }
 function confirmCancel(){ document.getElementById('confirmCard').classList.remove('show'); paused=false; lastCode=''; }
 
-async function confirmAdd(){
+function confirmAdd(){
   if(!OP){ setOperator(); if(!OP){ toast('请先设置你的名字再下单'); return; } }
   const final=cf.final||'';
-  lastSize[slot]=cf.size;   // 记住这位顾客的码作为后续默认
-  const ex=RAW.find(r=>r.customer===slot && r.todo && (final? r.finalCode===final : (r.styleCode===cf.style&&r.color===cf.color&&r.spec===cf.size)));
+  const qty=cf.qty, style=cf.style, color=cf.color, size=cf.size, name=cf.name, scan=cf.scan, curSlot=slot;
+  lastSize[slot]=size;   // 记住这位顾客的码作为后续默认
+  // 合并到已有同款
+  const ex=RAW.find(r=>r.customer===curSlot && r.todo && !r.archived && (final? r.finalCode===final : (r.styleCode===style&&r.color===color&&r.spec===size)));
   if(ex){
-    ex.qtyN+=cf.qty; addedCount+=cf.qty; updateScanTop();
-    if(LIVE){ try{ await post({action:'update',recordId:ex._id,fields:{[FIELD.qty]:ex.qtyN}}); }catch(e){ toast('数量同步失败'); } }
-    finishAdd(); return;
+    ex.qtyN+=qty; addedCount+=qty; updateScanTop(); finishAdd();   // 立刻反馈
+    syncQty(ex);
+    return;
   }
-  const fields={[FIELD.customer]:slot,[FIELD.status]:ST_TODO,[FIELD.qty]:cf.qty,
-    [FIELD.scanCode]:cf.scan,[FIELD.barcode]:cf.scan,[FIELD.styleCode]:cf.style,
-    [FIELD.name]:cf.name,[FIELD.color]:cf.color,[FIELD.spec]:cf.size};
+  const fields={[FIELD.customer]:curSlot,[FIELD.status]:ST_TODO,[FIELD.qty]:qty,
+    [FIELD.scanCode]:scan,[FIELD.barcode]:scan,[FIELD.styleCode]:style,
+    [FIELD.name]:name,[FIELD.color]:color,[FIELD.spec]:size};
   if(final)fields[FIELD.finalCode]=final;
   if(OP)fields[FIELD.guidePerson]=OP;
-  if(!LIVE){
-    RAW.unshift(...normalize([{recordId:'new'+Date.now()+Math.floor(Math.random()*999),fields:{...fields,[FIELD.guide]:[{name:meName()}]}}]));
-    addedCount+=cf.qty; updateScanTop(); finishAdd(); return;
-  }
-  try{
-    const j=await post({action:'create',fields});
-    RAW.unshift(normalize([{recordId:j.record.record_id,fields:j.record.fields}])[0]);
-    addedCount+=cf.qty; updateScanTop(); finishAdd();
-  }catch(e){ toast('加入失败：'+e.message); }
+  // —— 乐观更新：先在本地插入临时记录，界面立刻出现，零等待 ——
+  const tmpId='tmp'+Date.now()+Math.floor(Math.random()*9999);
+  const rec=normalize([{recordId:tmpId,fields:{...fields,[FIELD.guide]:[{name:meName()}]}}])[0];
+  rec._pending=true; rec._sentQty=qty;
+  RAW.unshift(rec);
+  addedCount+=qty; updateScanTop(); finishAdd();   // 立即给反馈、关确认卡、继续扫
+  if(!LIVE){ rec._pending=false; return; }
+  // —— 后台同步飞书 ——
+  post({action:'create',fields}).then(j=>{
+    rec._id=j.record.record_id; rec._pending=false;
+    if(rec._canceled){ post({action:'delete',recordId:rec._id}).catch(()=>{}); return; }
+    if(rec.qtyN!==rec._sentQty) syncQty(rec);   // 期间又加过数量，补同步
+    render();
+  }).catch(e=>{
+    const i=RAW.indexOf(rec); if(i>=0)RAW.splice(i,1);   // 失败回滚
+    addedCount=Math.max(0,addedCount-qty); updateScanTop();
+    toast('未能同步到飞书，已撤回：'+(e.message||e)); render();
+  });
+}
+function syncQty(r){
+  if(!LIVE)return;
+  if(r._pending || String(r._id).startsWith('tmp'))return;   // 还没拿到真实ID，等创建完成后统一同步
+  post({action:'update',recordId:r._id,fields:{[FIELD.qty]:r.qtyN}}).catch(()=>toast('数量同步失败'));
 }
 function finishAdd(){
   document.getElementById('confirmCard').classList.remove('show');
@@ -567,13 +605,14 @@ async function stepItem(id,d){
   const r=RAW.find(x=>x._id===id); r.qtyN=Math.max(1,r.qtyN+d);
   const el=document.getElementById('q_'+id); if(el)el.textContent=r.qtyN;
   document.getElementById('sumN').textContent=cartCount(slot);
-  if(!LIVE)return;
+  if(!LIVE||r._pending||String(id).startsWith('tmp'))return;   // 临时记录等创建完成后统一同步
   clearTimeout(stepTimers[id]); stepTimers[id]=setTimeout(async()=>{ try{await post({action:'update',recordId:id,fields:{[FIELD.qty]:r.qtyN}});}catch(e){toast('数量同步失败');} },500);
 }
 async function removeItem(id){
   const r=RAW.find(x=>x._id===id);
   if(!confirm(`移除「${r.name||r.finalCode||r.scanCode}」？`))return false;
   if(!LIVE){ RAW=RAW.filter(x=>x._id!==id); toast('已移除（演示）'); render(); return true; }
+  if(r._pending||String(id).startsWith('tmp')){ r._canceled=true; RAW=RAW.filter(x=>x._id!==id); toast('已移除'); render(); return true; }
   try{ await post({action:'delete',recordId:id}); RAW=RAW.filter(x=>x._id!==id); toast('已移除'); render(); return true; }
   catch(e){ toast('移除失败：'+e.message); return false; }
 }
