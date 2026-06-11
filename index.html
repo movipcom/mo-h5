@@ -25,6 +25,7 @@
   .wordmark{width:40px;height:40px;border-radius:2px;flex:0 0 auto;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:700;font-size:14px;letter-spacing:.04em;}
   .htxt{flex:1;min-width:0;}
   .htxt h1{margin:5px 0 0;font-size:19px;font-weight:600;letter-spacing:-.02em;}
+  .htxt .who{font-size:11px;font-weight:600;color:var(--ink-2);border:1px solid var(--line-2);padding:2px 9px;border-radius:99px;letter-spacing:0;margin-left:9px;cursor:pointer;}
   .pill{display:inline-flex;align-items:center;gap:6px;height:25px;padding:0 11px;border-radius:99px;font-size:10.5px;font-weight:600;letter-spacing:.02em;border:1px solid var(--line-2);color:var(--ink-2);cursor:pointer;background:var(--surface);}
   .pill .led{width:5px;height:5px;border-radius:50%;background:var(--ink-3);}
   .pill.live{color:var(--done);border-color:#CFE0D3;} .pill.live .led{background:var(--done);}
@@ -100,7 +101,7 @@
   <header>
     <div class="top">
       <div class="wordmark">MO</div>
-      <div class="htxt"><div class="eyebrow">Picking Station · 小仓配货台</div><h1>配货台</h1></div>
+      <div class="htxt"><div class="eyebrow">Picking Station · 小仓配货台</div><h1>配货台<span class="who" id="meName" onclick="setOperator()">点此设置姓名</span></h1></div>
       <span class="pill" id="srcPill" onclick="refresh()"><span class="led"></span><span id="srcTxt">连接中</span></span>
     </div>
     <div class="seg" id="seg">
@@ -118,11 +119,15 @@
 <script>
 const API='/api/feishu';
 const BARCODE_CDN='https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js';
-const FIELD={ id:'明细ID', customer:'客户', guide:'导购', status:'状态', picker:'捡货员',
+const FIELD={ id:'明细ID', customer:'客户', guide:'导购', guidePerson:'导购员', status:'状态', picker:'捡货员', pickPerson:'配货员', archive:'试衣完成',
   styleCode:'识别款式编码', name:'商品名称', scanCode:'扫码商品编码', color:'颜色',
   finalCode:'最终商品编码', spec:'规格', barcode:'条形码', qty:'数量', barcodeImg:'条形码图形' };
 const ST_TODO='试衣单', ST_DONE='配货完成';
 let RAW=[], seg='todo', cust='all', LIVE=false;
+let OP=''; try{OP=localStorage.getItem('mo_operator')||'';}catch(e){}
+function gname(r){return r.guidePerson||r.guide||'—';}   // 优先真实导购姓名
+function applyOP(){const el=document.getElementById('meName');if(el)el.textContent=OP||'点此设置姓名';}
+function setOperator(){const n=prompt('请输入你的名字（记录为配货员）',OP||'');if(n!=null){OP=n.trim();try{localStorage.setItem('mo_operator',OP);}catch(e){}applyOP();render();}}
 
 function colorHex(n){
   n=String(n||'');
@@ -158,6 +163,7 @@ function normalize(items){
     const f=it.fields||{},g=k=>f[FIELD[k]],r={_id:it.recordId,_raw:f};
     for(const k in FIELD)r[k]=cell(g(k));
     r.qtyN=num(g('qty'))||1; r.todo=r.status!==ST_DONE;
+    r.archived=(r.archive===true||r.archive==='true');
     r.imgTokens=imgTokens(g('barcodeImg'));
     r.bcText=r.finalCode||r.barcode||r.scanCode||'';
     return r;
@@ -170,7 +176,7 @@ async function refresh(){
     const j=await res.json(); if(!j.ok)throw new Error(j.error||'代理异常');
     RAW=normalize(j.items); LIVE=true; setSource(true);
   }catch(e){ RAW=normalize(DEMO); LIVE=false; setSource(false,e.message); }
-  render();
+  applyOP(); render();
 }
 function setSource(live,err){
   const p=document.getElementById('srcPill');p.className='pill '+(live?'live':'demo');
@@ -185,18 +191,19 @@ function setSeg(s){seg=s;document.querySelectorAll('.seg button').forEach(b=>b.c
 function setCust(c){cust=c;render();}
 
 function render(){
-  document.getElementById('bTodo').textContent=RAW.filter(r=>r.todo).length;
-  document.getElementById('bDone').textContent=RAW.filter(r=>!r.todo).length;
-  const segRows=RAW.filter(r=> seg==='todo'?r.todo:!r.todo);
+  const vis=RAW.filter(r=>!r.archived);
+  document.getElementById('bTodo').textContent=vis.filter(r=>r.todo).length;
+  document.getElementById('bDone').textContent=vis.filter(r=>!r.todo).length;
+  const segRows=vis.filter(r=> seg==='todo'?r.todo:!r.todo);
   // 试衣单 = 导购 × 客户
   const pairs=[]; const seen=new Set();
-  segRows.forEach(r=>{ const k=(r.guide||'')+'\u0001'+(r.customer||''); if(!seen.has(k)){seen.add(k);pairs.push({key:k,guide:r.guide||'',customer:r.customer||''});} });
+  segRows.forEach(r=>{ const k=gname(r)+'\u0001'+(r.customer||''); if(!seen.has(k)){seen.add(k);pairs.push({key:k,guide:gname(r),customer:r.customer||''});} });
   document.getElementById('custChips').innerHTML=
     `<button class="chip-f ${cust==='all'?'on':''}" onclick="setCust('all')">全部</button>`+
     pairs.map(p=>`<button class="chip-f ${cust===p.key?'on':''}" onclick="setCust('${jsq(p.key)}')">${p.guide||'—'}<span class="own">的</span>${av(p.customer)}${p.customer}</button>`).join('');
 
   let rows=segRows;
-  if(cust!=='all') rows=rows.filter(r=>((r.guide||'')+'\u0001'+(r.customer||''))===cust);
+  if(cust!=='all') rows=rows.filter(r=>(gname(r)+'\u0001'+(r.customer||''))===cust);
   const list=document.getElementById('list');
   if(!RAW.length){list.innerHTML='<div class="skel"></div>'.repeat(3);return;}
   let head=''; if(!LIVE)head=`<div class="errbar">演示数据 — 条形码图形由「最终商品编码」本地生成；连飞书后优先显示记录里上传的条形码图形附件，状态点「配货完成」实时写回。</div>`;
@@ -205,7 +212,7 @@ function render(){
     return;
   }
   const groups={};
-  rows.forEach(r=>{ const k=(r.guide||'')+'\u0001'+(r.customer||''); (groups[k]=groups[k]||{guide:r.guide||'',customer:r.customer||'',items:[]}).items.push(r); });
+  rows.forEach(r=>{ const k=gname(r)+'\u0001'+(r.customer||''); (groups[k]=groups[k]||{guide:gname(r),customer:r.customer||'',items:[]}).items.push(r); });
   let body=head;
   Object.values(groups).forEach(g=>{
     body+=`<div class="grp"><div class="grp-h">${av(g.customer)}<span class="gn">${g.guide||'—'}的${g.customer||'未指定'}</span><span class="gq">${g.items.length} 件</span>`;
@@ -226,7 +233,7 @@ function card(r){
     : `<div class="bc-wrap"><div class="bc-code none">无条码 · 断码</div></div>`;
   const action = r.todo
     ? `<button class="status-btn" onclick='pickOne("${r._id}")'><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4L19 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>配货完成</button>`
-    : `<div class="status-done" onclick='setStatus(["${r._id}"],"${ST_TODO}")'><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4L19 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>已配完 · 点可退回</div>`;
+    : `<div class="status-done" onclick='setStatus(["${r._id}"],"${ST_TODO}")'><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4L19 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>已配完${r.pickPerson?' · '+r.pickPerson:''} · 点可退回</div>`;
   return `<div class="card ${r.todo?'':'done'}">
     <div class="c-name">${r.name||'未匹配'}</div>
     <div class="c-attrs">
@@ -253,15 +260,17 @@ async function renderBarcodes(){
 
 /* 状态：配货完成 / 退回 */
 async function pickOne(id){ await setStatus([id], ST_DONE); }
-async function pickGroup(guide,customer){ await setStatus(RAW.filter(r=>r.guide===guide&&r.customer===customer&&r.todo).map(r=>r._id), ST_DONE); }
+async function pickGroup(guide,customer){ await setStatus(RAW.filter(r=>gname(r)===guide&&r.customer===customer&&r.todo).map(r=>r._id), ST_DONE); }
 async function setStatus(ids, status){
   if(!ids.length)return;
-  if(!LIVE){ ids.forEach(id=>{const r=RAW.find(x=>x._id===id);r.status=status;r.todo=status!==ST_DONE;}); toast(status===ST_DONE?'已配完（演示）':'已退回'); render(); return; }
+  if(status===ST_DONE && !OP){ setOperator(); if(!OP){ toast('请先设置你的名字再配货'); return; } }
+  const f={[FIELD.status]:status}; if(status===ST_DONE && OP) f[FIELD.pickPerson]=OP;
+  if(!LIVE){ ids.forEach(id=>{const r=RAW.find(x=>x._id===id);r.status=status;r.todo=status!==ST_DONE;if(status===ST_DONE)r.pickPerson=OP;}); toast(status===ST_DONE?'已配完（演示）':'已退回'); render(); return; }
   toast('提交中…');
   try{
     for(const id of ids){
-      await post({action:'update',recordId:id,fields:{[FIELD.status]:status}});
-      const r=RAW.find(x=>x._id===id); r.status=status; r.todo=status!==ST_DONE;
+      await post({action:'update',recordId:id,fields:f});
+      const r=RAW.find(x=>x._id===id); r.status=status; r.todo=status!==ST_DONE; if(status===ST_DONE)r.pickPerson=OP;
     }
     toast(status===ST_DONE?`已配完 ${ids.length} 件`:'已退回'); render();
   }catch(e){ toast('失败：'+e.message); }
@@ -275,8 +284,9 @@ const DEMO=[
   ['客户2','阿May','LIZE【L1749】亚麻直筒裤','咖色','L','L1749L6',2, ST_TODO],
   ['客户2','阿May','Dokky「刚需小U领」显瘦坑条正肩T恤D0005','热颂红','M','D0005M2',1, ST_DONE],
 ].map((a,i)=>({recordId:'demo'+i,fields:{
-  [FIELD.id]:i+1,[FIELD.customer]:a[0],[FIELD.guide]:[{name:a[1]}],[FIELD.name]:a[2],
+  [FIELD.id]:i+1,[FIELD.customer]:a[0],[FIELD.guidePerson]:a[1],[FIELD.name]:a[2],
   [FIELD.color]:a[3],[FIELD.spec]:a[4],[FIELD.finalCode]:a[5],[FIELD.barcode]:a[5],[FIELD.qty]:a[6],[FIELD.status]:a[7],
+  [FIELD.pickPerson]:a[7]===ST_DONE?'阿强':'',
 }}));
 
 refresh();

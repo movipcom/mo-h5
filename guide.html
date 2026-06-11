@@ -49,9 +49,12 @@
   .slot.add{min-width:auto;display:flex;align-items:center;justify-content:center;color:var(--ink-3);border-style:dashed;gap:7px;font-size:12.5px;font-weight:600;padding:0 18px;letter-spacing:-.01em;}
 
   main{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:20px 20px calc(96px + env(safe-area-inset-bottom));}
-  .cart-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:0 2px 16px;}
+  .cart-h{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 2px 16px;}
+  .cart-h .cl{display:flex;align-items:baseline;gap:9px;min-width:0;}
   .cart-h .t{font-size:17px;font-weight:600;letter-spacing:-.02em;}
   .cart-h .s{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);letter-spacing:0;}
+  .endbtn{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;height:32px;padding:0 13px;border-radius:2px;border:1px solid var(--ink);background:var(--ink);color:#fff;font-size:12px;font-weight:600;letter-spacing:.02em;cursor:pointer;}
+  .endbtn:active{opacity:.85;}
 
   .citem{background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:15px 15px;margin-bottom:11px;display:flex;align-items:center;gap:13px;}
   .citem .cbody{flex:1;min-width:0;cursor:pointer;}
@@ -189,7 +192,7 @@
   <header>
     <div class="top">
       <div class="wordmark">MO</div>
-      <div class="htxt"><div class="eyebrow">Fitting Studio · 导购台</div><h1>我的接待<span class="who" id="meName">导购</span></h1></div>
+      <div class="htxt"><div class="eyebrow">Fitting Studio · 导购台</div><h1>我的接待<span class="who" id="meName" onclick="setOperator()">点此设置姓名</span></h1></div>
       <span class="pill" id="srcPill" onclick="refresh()"><span class="led"></span><span id="srcTxt">连接中</span></span>
     </div>
   </header>
@@ -265,13 +268,15 @@ const SLOTS_DEFAULT=['客户1','客户2'];
 const SCAN_CDN='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';
 const SIZE_ORDER=['XS','S','M','L','L/40','XL','2XL','3XL','F'];
 
-const FIELD={ id:'明细ID', customer:'客户', guide:'导购', status:'状态', picker:'捡货员',
+const FIELD={ id:'明细ID', customer:'客户', guide:'导购', guidePerson:'导购员', status:'状态', picker:'捡货员', archive:'试衣完成',
   styleCode:'识别款式编码', name:'商品名称', scanCode:'扫码商品编码', color:'颜色',
   finalCode:'最终商品编码', spec:'规格', barcode:'条形码', qty:'数量' };
 const PFIELD={ name:'商品名称', code:'商品编码', style:'款式编码', color:'颜色', spec:'规格' };
 const ST_TODO='试衣单', ST_DONE='配货完成';
 
 let RAW=[], LIVE=false, slot='客户1';
+let OP=''; try{OP=localStorage.getItem('mo_operator')||'';}catch(e){}
+let extraSlots=[];
 let lastSize={};   // 记住每位顾客上次选的码，作为默认
 let IDX={byCode:{}, styleMap:{}}, libCount=0;
 
@@ -299,7 +304,9 @@ function cell(v){
   if(typeof v==='object')return v.text||v.name||''; return v;
 }
 function num(v){const n=parseFloat(String(cell(v)).replace(/[^\d.\-]/g,''));return isNaN(n)?0:n;}
-function meName(){return document.getElementById('meName').textContent;}
+function meName(){return OP||'';}
+function applyOP(){const el=document.getElementById('meName');if(el)el.textContent=OP||'点此设置姓名';}
+function setOperator(){const n=prompt('请输入你的名字（记录为本单导购）',OP||'');if(n!=null){OP=n.trim();try{localStorage.setItem('mo_operator',OP);}catch(e){}applyOP();render();}}
 function jsq(s){return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
 async function post(body){
   const res=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','X-Proxy-Key':window.__PROXY_KEY||''},body:JSON.stringify(body)});
@@ -312,7 +319,7 @@ function normalize(items){
   return items.map(it=>{
     const f=it.fields||{},g=k=>f[FIELD[k]],r={_id:it.recordId,_raw:f};
     for(const k in FIELD)r[k]=cell(g(k));
-    r.qtyN=num(g('qty'))||1; r.todo=r.status!==ST_DONE; return r;
+    r.qtyN=num(g('qty'))||1; r.todo=r.status!==ST_DONE; r.archived=(r.archive===true||r.archive==='true'); return r;
   });
 }
 async function refresh(){
@@ -322,7 +329,7 @@ async function refresh(){
     const j=await res.json(); if(!j.ok)throw new Error(j.error||'代理异常');
     RAW=normalize(j.items); LIVE=true; setSource(true);
   }catch(e){ RAW=normalize(DEMO); LIVE=false; setSource(false,e.message); }
-  const g=RAW.map(r=>r.guide).find(Boolean); if(g)document.getElementById('meName').textContent=g;
+  applyOP();
   const busy=slots().find(s=>activeOf(s).length); if(busy)slot=busy;
   render(); loadProducts();
 }
@@ -367,16 +374,31 @@ function recognize(scan){
 const slotColors={'客户1':'var(--c1)','客户2':'var(--c2)','客户3':'var(--c3)','客户4':'var(--c4)'};
 function slotColor(s){return slotColors[s]||'#8A857B';}
 function av(s){return `<span class="av" style="background:${slotColor(s)}">${(s||'·').replace(/[^0-9]/g,'')||(s||'·')[0]}</span>`;}
-function slots(){return [...new Set([...SLOTS_DEFAULT,...RAW.map(r=>r.customer).filter(Boolean)])];}
-function activeOf(s){return RAW.filter(r=>r.customer===s&&r.guide===meName()&&r.todo);}
-function doneOf(s){return RAW.filter(r=>r.customer===s&&r.guide===meName()&&!r.todo);}
-function allOf(s){return RAW.filter(r=>r.customer===s&&r.guide===meName()).slice().sort((x,y)=>(x.todo===y.todo)?0:(x.todo?-1:1));}
+function slotNum(s){const m=String(s).match(/(\d+)/);return m?parseInt(m[1]):999;}
+function slots(){return [...new Set([...SLOTS_DEFAULT,...extraSlots,...RAW.map(r=>r.customer).filter(Boolean)])].sort((a,b)=>slotNum(a)-slotNum(b));}
+function activeOf(s){return RAW.filter(r=>r.customer===s&&!r.archived&&r.todo);}
+function doneOf(s){return RAW.filter(r=>r.customer===s&&!r.archived&&!r.todo);}
+function allOf(s){return RAW.filter(r=>r.customer===s&&!r.archived).slice().sort((x,y)=>(x.todo===y.todo)?0:(x.todo?-1:1));}
 function cartCount(s){return allOf(s).reduce((x,r)=>x+r.qtyN,0);}
+async function archiveSlot(){
+  const items=allOf(slot);
+  if(!items.length){toast('当前没有可结束的试衣单');return;}
+  if(!confirm(`结束「${slot}」的接待？\n本单 ${items.length} 件会从 App 移除，飞书表里打勾保留存档（不删除）。`))return;
+  if(!LIVE){ items.forEach(r=>r.archived=true); extraSlots=extraSlots.filter(x=>x!==slot); slot='客户1'; toast('已结束接待（演示）'); render(); return; }
+  toast('结束中…');
+  try{
+    for(const r of items){ await post({action:'update',recordId:r._id,fields:{[FIELD.archive]:true}}); r.archived=true; }
+    extraSlots=extraSlots.filter(x=>x!==slot);
+    const next=slots().find(s=>activeOf(s).length===0)||'客户1'; slot=next;
+    toast('接待已结束 · 已存档到飞书'); render();
+  }catch(e){ toast('结束失败：'+e.message); }
+}
 function pickSlot(s){slot=s;render();}
 function newGuest(){
   const free=slots().find(s=>activeOf(s).length===0);
-  if(free){slot=free;toast('开始接待 '+free);render();}
-  else toast('客户槽位都在接待中，可在飞书给「客户」字段加客户3');
+  if(free){slot=free;toast('开始接待 '+free);render();return;}
+  const next='客户'+(Math.max(0,...slots().map(slotNum))+1);
+  extraSlots.push(next); slot=next; toast('开始接待 '+next); render();
 }
 
 function render(){
@@ -394,7 +416,7 @@ function render(){
   const main=document.getElementById('cart');
   if(!RAW.length){main.innerHTML='<div class="skel"></div>'.repeat(4);return;}
   let head=''; if(!LIVE)head=`<div class="errbar">演示数据 — 点「扫码加货」→「手动输入」敲 D0902M2 或 L1749，在确认卡里选颜色尺码看最终商品编码。</div>`;
-  let body=`<div class="cart-h"><span class="t">${slot} · 试衣单</span><span class="s">${all.length} 款 / ${q} 件</span></div>`;
+  let body=`<div class="cart-h"><div class="cl"><span class="t">${slot} · 试衣单</span><span class="s">${all.length} 款 / ${q} 件</span></div>${all.length?`<button class="endbtn" onclick="archiveSlot()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4L19 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>试衣完成</button>`:''}</div>`;
   if(!all.length){
     body+=`<div class="state"><svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M5 7h14l-1.2 11a2 2 0 01-2 1.8H8.2a2 2 0 01-2-1.8L5 7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M9 7a3 3 0 016 0" stroke="currentColor" stroke-width="1.4"/></svg><h4>试衣单是空的</h4><p>扫吊牌条码 → 选颜色尺码 → 识别最终商品编码</p></div>`;
   }else{
@@ -508,9 +530,10 @@ function cfQtyStep(d){ cf.qty=Math.max(1,cf.qty+d); document.getElementById('cfQ
 function confirmCancel(){ document.getElementById('confirmCard').classList.remove('show'); paused=false; lastCode=''; }
 
 async function confirmAdd(){
+  if(!OP){ setOperator(); if(!OP){ toast('请先设置你的名字再下单'); return; } }
   const final=cf.final||'';
   lastSize[slot]=cf.size;   // 记住这位顾客的码作为后续默认
-  const ex=RAW.find(r=>r.customer===slot && r.guide===meName() && r.todo && (final? r.finalCode===final : (r.styleCode===cf.style&&r.color===cf.color&&r.spec===cf.size)));
+  const ex=RAW.find(r=>r.customer===slot && r.todo && (final? r.finalCode===final : (r.styleCode===cf.style&&r.color===cf.color&&r.spec===cf.size)));
   if(ex){
     ex.qtyN+=cf.qty; addedCount+=cf.qty; updateScanTop();
     if(LIVE){ try{ await post({action:'update',recordId:ex._id,fields:{[FIELD.qty]:ex.qtyN}}); }catch(e){ toast('数量同步失败'); } }
@@ -520,6 +543,7 @@ async function confirmAdd(){
     [FIELD.scanCode]:cf.scan,[FIELD.barcode]:cf.scan,[FIELD.styleCode]:cf.style,
     [FIELD.name]:cf.name,[FIELD.color]:cf.color,[FIELD.spec]:cf.size};
   if(final)fields[FIELD.finalCode]=final;
+  if(OP)fields[FIELD.guidePerson]=OP;
   if(!LIVE){
     RAW.unshift(...normalize([{recordId:'new'+Date.now()+Math.floor(Math.random()*999),fields:{...fields,[FIELD.guide]:[{name:meName()}]}}]));
     addedCount+=cf.qty; updateScanTop(); finishAdd(); return;
