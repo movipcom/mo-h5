@@ -136,11 +136,12 @@
 <script>
 const API='/api/feishu';
 const BARCODE_CDN='https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js';
-const FIELD={ id:'明细ID', customer:'客户', guide:'导购', guidePerson:'导购员', status:'状态', picker:'捡货员', pickPerson:'配货员', archive:'试衣完成', oos:'缺货', source:'取货来源',
+const FIELD={ id:'明细ID', customer:'客户', guide:'导购', guidePerson:'导购员', status:'状态', picker:'捡货员', pickPerson:'配货员', archive:'试衣完成', oos:'缺货', source:'取货来源', created:'创建时间',
   styleCode:'识别款式编码', name:'商品名称', scanCode:'扫码商品编码', color:'颜色',
   finalCode:'最终商品编码', spec:'规格', barcode:'条形码', qty:'数量', barcodeImg:'条形码图形' };
 const ST_TODO='试衣单', ST_DONE='配货完成';
 const OVERDUE_MIN=5;   // 配货超时阈值（分钟）
+function tsOf(g,it){ let n=0; const c=g('created'); if(c!=null&&c!==''){ const x=typeof c==='number'?c:parseFloat(String(c).replace(/[^\d.]/g,'')); if(!isNaN(x)&&x>0)n=x; } if(!n&&it&&it.createdTime)n=+it.createdTime; if(!n)return 0; return n<1e12?n*1000:n; }
 let RAW=[], seg='todo', cust='all', LIVE=false;
 let OP=''; try{OP=localStorage.getItem('mo_operator')||'';}catch(e){}
 function gname(r){return r.guidePerson||'';}   // 只认真实导购姓名；为空则不显示（不再退回创建人MO试衣）
@@ -184,7 +185,7 @@ function normalize(items){
     r.archived=(r.archive===true||r.archive==='true');
     r.outStock=(r.oos===true||r.oos==='true');
     r.source=cell(g('source'))||'小仓'; r.inHand=(r.source==='陈列仓');
-    r.ts=it.createdTime?(+it.createdTime<1e12?+it.createdTime*1000:+it.createdTime):0;
+    r.ts=tsOf(g,it);
     r.imgTokens=imgTokens(g('barcodeImg'));
     r.bcText=r.finalCode||r.barcode||r.scanCode||'';
     return r;

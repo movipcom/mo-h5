@@ -131,7 +131,7 @@ const API='/api/feishu';
 let LIVE=true;
 const ST_DONE='配货完成';
 const OVERDUE_MIN=5;
-const FIELD={ customer:'客户', guidePerson:'导购员', status:'状态', archive:'试衣完成', oos:'缺货', bought:'已购买', returned:'已归位', source:'取货来源', styleCode:'识别款式编码', name:'商品名称', color:'颜色', finalCode:'最终商品编码', spec:'规格', qty:'数量' };
+const FIELD={ customer:'客户', guidePerson:'导购员', status:'状态', archive:'试衣完成', oos:'缺货', bought:'已购买', returned:'已归位', source:'取货来源', created:'创建时间', styleCode:'识别款式编码', name:'商品名称', color:'颜色', finalCode:'最终商品编码', spec:'规格', qty:'数量' };
 let RANGE='today', RAW=[];
 
 function cell(v){ if(v==null)return''; if(Array.isArray(v)){ if(v.length&&typeof v[0]==='object'){ if('text'in v[0])return v.map(s=>s.text).join(''); if('name'in v[0])return v.map(s=>s.name).join('、'); return v.map(x=>x.text||x.name||'').join('、'); } return v.join('、'); } if(typeof v==='object')return v.text||v.name||''; return v; }
@@ -150,7 +150,7 @@ async function load(){
       o.qtyN=num(g('qty'))||1; o.done=o.status===ST_DONE;
       o.bought=bool(g('bought')); o.returned=bool(g('returned')); o.oos=bool(g('oos')); o.archived=bool(g('archive'));
       o.source=cell(g('source'))||'小仓'; o.inHand=(o.source==='陈列仓');
-      o.ts=it.createdTime?(+it.createdTime<1e12?+it.createdTime*1000:+it.createdTime):0;
+      o.ts=(function(){var c=g('created'),n=0;if(c!=null&&c!==''){var x=typeof c==='number'?c:parseFloat(String(c).replace(/[^0-9.]/g,''));if(!isNaN(x)&&x>0)n=x;}if(!n&&it.createdTime)n=+it.createdTime;return n?(n<1e12?n*1000:n):0;})();
       o.mts=it.modifiedTime?(+it.modifiedTime<1e12?+it.modifiedTime*1000:+it.modifiedTime):0;
       return o;
     });
