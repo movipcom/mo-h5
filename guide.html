@@ -105,6 +105,25 @@
   .sp-tx i{font-size:11.5px;color:var(--ink-3);font-style:normal;}
   .sp-cancel{width:100%;height:44px;border:none;background:var(--surface-2);border-radius:3px;color:var(--ink-2);font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;margin-top:3px;}
   .srcBtn{height:30px;padding:0 11px;border-radius:99px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.1);color:#fff;font-size:11.5px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;}
+  .tray{flex:0 0 auto;display:none;flex-direction:column;background:var(--surface);border-top:1px solid var(--line);max-height:46vh;}
+  .tray.show{display:flex;}
+  .tray.flash{animation:trayFlash .5s ease;}
+  @keyframes trayFlash{0%{box-shadow:inset 0 4px 0 var(--done);}100%{box-shadow:inset 0 0 0 transparent;}}
+  .tray-h{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 7px;}
+  .tray-h .tt{font-size:13.5px;font-weight:600;}.tray-h .tt b{font-family:var(--mono);}
+  .tray-clear{border:none;background:none;color:var(--ink-3);font-size:12px;font-family:inherit;cursor:pointer;}
+  .tray-list{flex:1;overflow-y:auto;padding:0 12px;-webkit-overflow-scrolling:touch;}
+  .tray-empty{padding:20px;text-align:center;color:var(--ink-3);font-size:12.5px;}
+  .tray-item{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line-2);animation:fadeUp .3s ease both;}
+  .tray-item .ti-sw{width:9px;height:9px;border-radius:50%;flex:0 0 auto;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08);}
+  .tray-item .ti-tx{flex:1;min-width:0;}
+  .tray-item .ti-nm{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .tray-item .ti-code{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:2px;}
+  .tray-item .ti-step{display:flex;border:1px solid var(--line);border-radius:2px;overflow:hidden;flex:0 0 auto;}
+  .tray-item .ti-step button{width:26px;height:26px;border:none;background:var(--surface);font-size:15px;color:var(--ink);cursor:pointer;}
+  .tray-item .ti-q{font-family:var(--mono);font-size:12.5px;min-width:24px;text-align:center;line-height:26px;}
+  .tray-item .ti-del{width:28px;height:28px;border:none;background:none;color:var(--ink-3);cursor:pointer;flex:0 0 auto;}
+  .tray-add{margin:9px 12px calc(11px + env(safe-area-inset-bottom));height:48px;border:none;border-radius:3px;background:var(--ink);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;}
   .cf-opt.src{font-size:12.5px;letter-spacing:-.01em;}
   .stat-oos{color:#fff;background:var(--bad);letter-spacing:.04em;animation:oosPulse 1.3s ease-in-out infinite;box-shadow:0 2px 8px -2px rgba(142,59,54,.5);}
   @keyframes oosPulse{0%,100%{opacity:1;}50%{opacity:.5;}}
@@ -310,6 +329,11 @@
       <p id="manualMsg">手动 / 扫码枪录入</p>
       <input id="manualInput" inputmode="text" placeholder="商品编码 / 条码" autocomplete="off">
       <button class="mok" onclick="manualSubmit()">识别</button>
+    </div>
+    <div class="tray" id="tray">
+      <div class="tray-h"><span class="tt">暂存篮 · <b id="trayN">0</b> 件</span><button class="tray-clear" onclick="trayClear()">清空</button></div>
+      <div class="tray-list" id="trayList"></div>
+      <button class="tray-add" onclick="trayCommit()">全部加入试衣单 · <span id="trayAddN">0</span></button>
     </div>
     <div class="scan-foot">
       <button class="mbtn" onclick="toggleManual()">手动输入</button>
@@ -602,10 +626,10 @@ function updateScanTop(){
 function openSrcPick(){ document.getElementById('srcPick').classList.add('show'); }
 function closeSrcPick(){ document.getElementById('srcPick').classList.remove('show'); }
 function startScan(src){ scanMode=src; closeSrcPick(); openScan(); }
-function toggleScanSrc(){ scanMode=scanMode==='陈列仓'?'小仓':'陈列仓'; updateScanTop(); toast('已切到 '+scanMode); }
+function toggleScanSrc(){ scanMode=scanMode==='陈列仓'?'小仓':'陈列仓'; updateScanTop(); renderTray(); toast('已切到 '+scanMode); }
 
 async function openScan(){
-  addedCount=0; lastCode=''; paused=false; torchOn=false; updateScanTop();
+  addedCount=0; lastCode=''; paused=false; torchOn=false; tray=[]; updateScanTop(); renderTray();
   const tb=document.getElementById('torchBtn'); if(tb)tb.classList.remove('on');
   document.getElementById('confirmCard').classList.remove('show');
   document.getElementById('manualBox').classList.remove('show');
@@ -635,39 +659,70 @@ function onDecode(text){
   const now=Date.now(); if(text===lastCode && now-lastT<1500)return;
   lastCode=text; lastT=now; beep();
   if(returnScanMode){ markReturned(scanReturnId); closeScan(); return; }   // 归位:扫一下即归位
-  if(scanMode==='陈列仓'){ quickAddDisplay(text); return; }   // 陈列仓:所见即所得，秒加
+  if(scanMode==='陈列仓'){ trayPush(text); return; }   // 陈列仓:进暂存篮，确认后一起加入
   openConfirm(text);
 }
-/* 陈列仓秒加：扫出的完整编码=最终编码，库里有就带名/色/码，没有也照加 */
-function quickAddDisplay(rawcode){
-  if(!OP){ setOperator(); if(!OP){ toast('请先设置你的名字再下单'); return; } }
+/* —— 陈列仓暂存篮 —— */
+let tray=[];
+function trayPush(rawcode){
   const code=String(rawcode||'').trim(); if(!code)return;
+  if(tray.find(t=>t.code===code)){ trayFlash(); toast('已在暂存篮里 · '+code); return; }   // 重复不加
   const info=IDX.byCode[code]||null;
-  const name=(info&&info.name)||'', color=(info&&info.color)||'', size=(info&&info.size)||'';
-  let style=(info&&info.style)||''; if(!style){ const rg=recognize(code); if(rg)style=rg.style; }
-  const curSlot=slot;
-  if(size)lastSize[slot]=size;
+  let style=(info&&info.style)||''; if(!style){ const r=recognize(code); if(r)style=r.style; }
+  tray.unshift({code, name:(info&&info.name)||'', color:(info&&info.color)||'', size:(info&&info.size)||'', style, qty:1});
+  trayFlash(); renderTray();   // beep/震动已在 onDecode 触发
+}
+function trayFlash(){ const t=document.getElementById('tray'); t.classList.remove('flash'); void t.offsetWidth; t.classList.add('flash'); if(navigator.vibrate)navigator.vibrate(20); }
+function trayStep(code,d){ const it=tray.find(t=>t.code===code); if(!it)return; it.qty=Math.max(1,it.qty+d); renderTray(); }
+function trayDel(code){ tray=tray.filter(t=>t.code!==code); renderTray(); }
+function trayClear(){ if(tray.length&&!confirm('清空暂存篮？'))return; tray=[]; renderTray(); }
+function renderTray(){
+  const show = scanMode==='陈列仓';
+  const box=document.getElementById('tray'); box.classList.toggle('show', show && tray.length>0);
+  const n=tray.reduce((a,t)=>a+t.qty,0);
+  document.getElementById('trayN').textContent=tray.length;
+  document.getElementById('trayAddN').textContent=n;
+  document.getElementById('trayList').innerHTML = tray.length? tray.map(t=>`
+    <div class="tray-item">
+      <span class="ti-sw" style="background:${colorHex(t.color)}"></span>
+      <div class="ti-tx"><div class="ti-nm">${t.name||t.code}</div><div class="ti-code">${t.code}${t.color?' · '+t.color:''}${t.size?' '+t.size:''}</div></div>
+      <div class="ti-step"><button onclick='trayStep("${jsq(t.code)}",-1)'>−</button><span class="ti-q">${t.qty}</span><button onclick='trayStep("${jsq(t.code)}",1)'>+</button></div>
+      <button class="ti-del" onclick='trayDel("${jsq(t.code)}")'><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
+    </div>`).join('') : '<div class="tray-empty">扫一件,进这里暂存</div>';
+}
+function trayCommit(){
+  if(!OP){ setOperator(); if(!OP){ toast('请先设置你的名字'); return; } }
+  if(!tray.length){ toast('暂存篮是空的'); return; }
+  const n=tray.reduce((a,t)=>a+t.qty,0);
+  tray.forEach(addDisplayRecord);
+  tray=[]; renderTray(); updateScanTop(); render();
+  toast('✓ 已加入 '+n+' 件到试衣单');
+}
+/* 把一条陈列仓记录乐观写入(供暂存篮提交) */
+function addDisplayRecord(it){
+  const curSlot=slot, code=it.code;
+  if(it.size)lastSize[slot]=it.size;
   const ex=RAW.find(r=>r.customer===curSlot && !r.archived && r.source==='陈列仓' && r.finalCode===code);
-  if(ex){ ex.qtyN+=1; addedCount+=1; updateScanTop(); toast('✓ 陈列 +1 · '+(name||code)); syncQty(ex); return; }
-  const fields={[FIELD.customer]:curSlot,[FIELD.status]:ST_DONE,[FIELD.qty]:1,[FIELD.source]:'陈列仓',
-    [FIELD.scanCode]:code,[FIELD.barcode]:code,[FIELD.finalCode]:code,[FIELD.styleCode]:style,
-    [FIELD.name]:name,[FIELD.color]:color,[FIELD.spec]:size};
+  if(ex){ ex.qtyN+=it.qty; addedCount+=it.qty; syncQty(ex); return; }
+  const fields={[FIELD.customer]:curSlot,[FIELD.status]:ST_DONE,[FIELD.qty]:it.qty,[FIELD.source]:'陈列仓',
+    [FIELD.scanCode]:code,[FIELD.barcode]:code,[FIELD.finalCode]:code,[FIELD.styleCode]:it.style||'',
+    [FIELD.name]:it.name||'',[FIELD.color]:it.color||'',[FIELD.spec]:it.size||''};
   if(OP)fields[FIELD.guidePerson]=OP;
   const tmpId='tmp'+Date.now()+Math.floor(Math.random()*9999);
   const rec=normalize([{recordId:tmpId,fields:{...fields,[FIELD.guide]:[{name:meName()}]}}])[0];
-  rec._pending=true; rec._sentQty=1; RAW.unshift(rec);
-  addedCount+=1; updateScanTop(); toast('✓ 陈列 · '+(name||code));
+  rec._pending=true; rec._sentQty=it.qty; RAW.unshift(rec); addedCount+=it.qty;
   if(!LIVE){ rec._pending=false; return; }
   post({action:'create',fields}).then(j=>{
     rec._id=j.record.record_id; rec._pending=false;
     if(rec._canceled){ post({action:'delete',recordId:rec._id}).catch(()=>{}); return; }
     if(rec.qtyN!==rec._sentQty) syncQty(rec);
-  }).catch(e=>{
-    const i=RAW.indexOf(rec); if(i>=0)RAW.splice(i,1);
-    addedCount=Math.max(0,addedCount-1); updateScanTop(); toast('未能同步，已撤回');
-  });
+  }).catch(e=>{ const i=RAW.indexOf(rec); if(i>=0)RAW.splice(i,1); addedCount=Math.max(0,addedCount-it.qty); toast('部分未能同步飞书'); });
 }
 async function closeScan(){
+  if(tray.length){
+    if(confirm(`暂存篮还有 ${tray.reduce((a,t)=>a+t.qty,0)} 件未加入，现在加入试衣单吗？\n（点取消则丢弃这些）`)){ trayCommit(); }
+    else { tray=[]; renderTray(); }
+  }
   if(h5q&&scanning){ try{await h5q.stop();}catch(e){} try{h5q.clear();}catch(e){} }
   h5q=null; scanning=false; paused=false;
   document.getElementById('scanLayer').classList.remove('show');
@@ -685,7 +740,7 @@ function toggleManual(){
   if(m.classList.contains('show')){ m.classList.remove('show'); document.getElementById('scanView').style.display=''; }
   else manualMode('手动 / 扫码枪录入');
 }
-function manualSubmit(){ const v=document.getElementById('manualInput').value.trim(); if(!v)return; if(scanMode==='陈列仓')quickAddDisplay(v); else openConfirm(v); document.getElementById('manualInput').value=''; }
+function manualSubmit(){ const v=document.getElementById('manualInput').value.trim(); if(!v)return; if(scanMode==='陈列仓')trayPush(v); else openConfirm(v); document.getElementById('manualInput').value=''; }
 document.getElementById('manualInput').addEventListener('keydown',e=>{ if(e.key==='Enter')manualSubmit(); });
 
 /* 确认卡：颜色/尺码映射 → 最终商品编码 */
