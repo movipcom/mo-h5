@@ -61,7 +61,12 @@
   .grp-h .gpick{margin-left:auto;height:30px;padding:0 14px;border-radius:2px;border:1px solid var(--ink);background:var(--ink);color:#fff;font-size:11px;font-weight:600;letter-spacing:.04em;cursor:pointer;}
   .grp-h .gpick:active{opacity:.85;}
 
-  .card{background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:16px;margin-bottom:12px;}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:16px;margin-bottom:12px;position:relative;}
+  .oos-btn{position:absolute;top:10px;right:10px;z-index:2;height:22px;padding:0 9px;border-radius:99px;border:1px solid var(--line);background:var(--surface);color:var(--ink-3);font-size:11px;font-weight:600;font-family:inherit;letter-spacing:.02em;cursor:pointer;opacity:.7;transition:.18s;}
+  .oos-btn:active{transform:scale(.94);}
+  .oos-btn.on{opacity:1;border-color:var(--bad);background:var(--bad-bg);color:var(--bad);}
+  .card.oos{background:linear-gradient(0deg,var(--bad-bg),var(--surface) 60%);border-color:#E4C7C2;}
+  .card.oos .c-name{color:var(--bad);}
   .card.done{opacity:.66;}
   .c-top{display:flex;align-items:center;gap:10px;}
   .c-cust{display:flex;align-items:center;gap:8px;}
@@ -69,7 +74,7 @@
   .c-cust .cn{font-size:14px;font-weight:600;letter-spacing:-.01em;}
   .c-guide{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-2);}
   .c-guide .lbl{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);font-weight:600;}
-  .c-name{font-size:14px;font-weight:600;letter-spacing:-.012em;margin-top:13px;line-height:1.35;}
+  .c-name{font-size:14px;font-weight:600;letter-spacing:-.012em;margin-top:13px;line-height:1.35;padding-right:54px;}
   .c-attrs{display:flex;align-items:center;gap:10px;margin-top:9px;flex-wrap:wrap;}
   .attr{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2);font-weight:500;}
   .swatch{width:12px;height:12px;border-radius:50%;flex:0 0 auto;box-shadow:inset 0 0 0 1px rgba(0,0,0,.13);}
@@ -123,7 +128,7 @@
 <script>
 const API='/api/feishu';
 const BARCODE_CDN='https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js';
-const FIELD={ id:'明细ID', customer:'客户', guide:'导购', guidePerson:'导购员', status:'状态', picker:'捡货员', pickPerson:'配货员', archive:'试衣完成',
+const FIELD={ id:'明细ID', customer:'客户', guide:'导购', guidePerson:'导购员', status:'状态', picker:'捡货员', pickPerson:'配货员', archive:'试衣完成', oos:'缺货',
   styleCode:'识别款式编码', name:'商品名称', scanCode:'扫码商品编码', color:'颜色',
   finalCode:'最终商品编码', spec:'规格', barcode:'条形码', qty:'数量', barcodeImg:'条形码图形' };
 const ST_TODO='试衣单', ST_DONE='配货完成';
@@ -168,6 +173,7 @@ function normalize(items){
     for(const k in FIELD)r[k]=cell(g(k));
     r.qtyN=num(g('qty'))||1; r.todo=r.status!==ST_DONE;
     r.archived=(r.archive===true||r.archive==='true');
+    r.outStock=(r.oos===true||r.oos==='true');
     r.imgTokens=imgTokens(g('barcodeImg'));
     r.bcText=r.finalCode||r.barcode||r.scanCode||'';
     return r;
@@ -238,7 +244,8 @@ function card(r){
   const action = r.todo
     ? `<button class="status-btn" onclick='pickOne("${r._id}")'><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4L19 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>配货完成</button>`
     : `<div class="status-done" onclick='setStatus(["${r._id}"],"${ST_TODO}")'><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4L19 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>已配完${r.pickPerson?' · '+r.pickPerson:''} · 点可退回</div>`;
-  return `<div class="card ${r.todo?'':'done'}">
+  return `<div class="card ${r.todo?'':'done'} ${r.outStock?'oos':''}">
+    <button class="oos-btn ${r.outStock?'on':''}" onclick='toggleOOS("${r._id}")'>${r.outStock?'缺货 ✓':'缺货'}</button>
     <div class="c-name">${r.name||'未匹配'}</div>
     <div class="c-attrs">
       ${r.color?`<span class="attr"><span class="swatch" style="background:${colorHex(r.color)}"></span>${r.color}</span>`:''}
@@ -248,6 +255,13 @@ function card(r){
     ${bc}
     ${action}
   </div>`;
+}
+async function toggleOOS(id){
+  const r=RAW.find(x=>x._id===id); if(!r)return;
+  const next=!r.outStock; r.outStock=next; render();   // 立刻切换
+  if(!LIVE)return;
+  try{ await post({action:'update',recordId:id,fields:{[FIELD.oos]:next}}); }
+  catch(e){ r.outStock=!next; toast('缺货同步失败，已还原'); render(); }
 }
 
 /* 条形码本地生成（JsBarcode 按需加载） */
