@@ -98,6 +98,14 @@
   .skel::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(0,0,0,.03),transparent);animation:sh 1.3s infinite;}
   @keyframes sh{100%{transform:translateX(100%)}}
   .errbar{background:var(--todo-bg);color:#7A6633;font-size:12px;padding:11px 14px;border-radius:3px;margin-bottom:14px;line-height:1.6;border:1px solid #E6DAB9;}
+  .overbar{background:var(--bad-bg,#F4E5E2);color:var(--bad,#8E3B36);font-size:12.5px;font-weight:600;padding:11px 14px;border-radius:3px;margin-bottom:14px;border:1px solid #E2C2BD;}
+  .overbar b{font-family:var(--mono);}
+  .t-badge{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:2px;font-size:11px;font-weight:600;color:var(--ink-3);background:var(--surface-2,#FAF8F3);border:1px solid var(--line);font-variant-numeric:tabular-nums;}
+  .t-badge.over{color:#fff;background:var(--bad,#8E3B36);border-color:var(--bad,#8E3B36);animation:overPulse 1.3s ease-in-out infinite;}
+  @keyframes overPulse{0%,100%{opacity:1;}50%{opacity:.55;}}
+  .card.overdue{border-color:#E2C2BD;box-shadow:inset 3px 0 0 var(--bad,#8E3B36);background:linear-gradient(90deg,var(--bad-bg,#F4E5E2),var(--surface) 60%);}
+  .card.overdue .c-name{color:var(--bad,#8E3B36);}
+  @media (prefers-reduced-motion:reduce){.t-badge.over{animation:none;}}
 
   .toast{position:absolute;left:50%;bottom:40px;transform:translateX(-50%) translateY(8px);background:var(--ink);color:#fff;font-size:12.5px;padding:11px 18px;border-radius:2px;opacity:0;pointer-events:none;transition:.2s;z-index:70;white-space:nowrap;max-width:90%;overflow:hidden;text-overflow:ellipsis;}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
@@ -132,6 +140,7 @@ const FIELD={ id:'明细ID', customer:'客户', guide:'导购', guidePerson:'导
   styleCode:'识别款式编码', name:'商品名称', scanCode:'扫码商品编码', color:'颜色',
   finalCode:'最终商品编码', spec:'规格', barcode:'条形码', qty:'数量', barcodeImg:'条形码图形' };
 const ST_TODO='试衣单', ST_DONE='配货完成';
+const OVERDUE_MIN=5;   // 配货超时阈值（分钟）
 let RAW=[], seg='todo', cust='all', LIVE=false;
 let OP=''; try{OP=localStorage.getItem('mo_operator')||'';}catch(e){}
 function gname(r){return r.guidePerson||'';}   // 只认真实导购姓名；为空则不显示（不再退回创建人MO试衣）
@@ -175,6 +184,7 @@ function normalize(items){
     r.archived=(r.archive===true||r.archive==='true');
     r.outStock=(r.oos===true||r.oos==='true');
     r.source=cell(g('source'))||'小仓'; r.inHand=(r.source==='陈列仓');
+    r.ts=it.createdTime?(+it.createdTime<1e12?+it.createdTime*1000:+it.createdTime):0;
     r.imgTokens=imgTokens(g('barcodeImg'));
     r.bcText=r.finalCode||r.barcode||r.scanCode||'';
     return r;
@@ -218,6 +228,8 @@ function render(){
   const list=document.getElementById('list');
   if(!RAW.length){list.innerHTML='<div class="skel"></div>'.repeat(3);return;}
   let head=''; if(!LIVE)head=`<div class="errbar">演示数据 — 条形码图形由「最终商品编码」本地生成；连飞书后优先显示记录里上传的条形码图形附件，状态点「配货完成」实时写回。</div>`;
+  const overdueN=vis.filter(r=>r.todo&&r.ts&&elapsedMin(r)>=OVERDUE_MIN).reduce((a,r)=>a+r.qtyN,0);
+  if(seg==='todo'&&overdueN>0) head+=`<div class="overbar">⏱ 有 <b>${overdueN}</b> 件配货超时（超 ${OVERDUE_MIN} 分钟）· 请尽快处理</div>`;
   if(!rows.length){
     list.innerHTML=head+`<div class="state"><svg width="38" height="38" viewBox="0 0 24 24" fill="none"><path d="M5 7h14l-1.2 11a2 2 0 01-2 1.8H8.2a2 2 0 01-2-1.8L5 7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M9 7a3 3 0 016 0" stroke="currentColor" stroke-width="1.4"/></svg><h4>${seg==='todo'?'没有待配货':'还没有已配完'}</h4><p>${seg==='todo'?'导购下了试衣单会出现在这里':'配完的会归到这里'}</p></div>`;
     return;
@@ -234,6 +246,7 @@ function render(){
   renderBarcodes();
 }
 
+function elapsedMin(r){ return r.ts? Math.floor((Date.now()-r.ts)/60000) : -1; }
 function card(r){
   const noFinal=!r.finalCode;
   const img = (LIVE && r.imgTokens[0])
@@ -245,13 +258,23 @@ function card(r){
   const action = r.todo
     ? `<button class="status-btn" onclick='pickOne("${r._id}")'><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4L19 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>配货完成</button>`
     : `<div class="status-done" onclick='setStatus(["${r._id}"],"${ST_TODO}")'><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4L19 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>已配完${r.pickPerson?' · '+r.pickPerson:''} · 点可退回</div>`;
-  return `<div class="card ${r.todo?'':'done'} ${r.outStock?'oos':''}">
+  // 配货时效：待配货且有创建时间才计时
+  let timeBadge='', overdue=false;
+  if(r.todo && r.ts){
+    const m=elapsedMin(r);
+    overdue = m>=OVERDUE_MIN;
+    timeBadge = overdue
+      ? `<span class="t-badge over">⏱ 配货超时 ${m}分</span>`
+      : `<span class="t-badge">⏱ 等待 ${m}分</span>`;
+  }
+  return `<div class="card ${r.todo?'':'done'} ${r.outStock?'oos':''} ${overdue?'overdue':''}">
     <button class="oos-btn ${r.outStock?'on':''}" onclick='toggleOOS("${r._id}")'>${r.outStock?'缺货 ✓':'缺货'}</button>
     <div class="c-name">${r.name||'未匹配'}</div>
     <div class="c-attrs">
       ${r.color?`<span class="attr"><span class="swatch" style="background:${colorHex(r.color)}"></span>${r.color}</span>`:''}
       ${r.spec?`<span class="size-pill">${r.spec}</span>`:''}
       ${r.qtyN>1?`<span class="attr">×${r.qtyN}</span>`:''}
+      ${timeBadge}
     </div>
     ${bc}
     ${action}
@@ -300,7 +323,9 @@ const DEMO=[
   ['客户1','阿May','Dokky【缪系菱格D0683】复古菱格Polo领针织衫','燕麦色','L','D0683L1',1, ST_TODO],
   ['客户2','阿May','LIZE【L1749】亚麻直筒裤','咖色','L','L1749L6',2, ST_TODO],
   ['客户2','阿May','Dokky「刚需小U领」显瘦坑条正肩T恤D0005','热颂红','M','D0005M2',1, ST_DONE],
-].map((a,i)=>({recordId:'demo'+i,fields:{
+].map((a,i)=>({recordId:'demo'+i,
+  createdTime: Date.now()-[8,2,11,1,30][i%5]*60000,   // 演示：部分超过5分钟
+  fields:{
   [FIELD.id]:i+1,[FIELD.customer]:a[0],[FIELD.guidePerson]:a[1],[FIELD.name]:a[2],
   [FIELD.color]:a[3],[FIELD.spec]:a[4],[FIELD.finalCode]:a[5],[FIELD.barcode]:a[5],[FIELD.qty]:a[6],[FIELD.status]:a[7],
   [FIELD.pickPerson]:a[7]===ST_DONE?'阿强':'',
@@ -317,6 +342,8 @@ async function silentRefresh(){
   }catch(e){}
 }
 setInterval(silentRefresh, 25000);
+/* 本地每 30 秒重绘，让等待/超时分钟实时更新（不必等服务器） */
+setInterval(()=>{ if(!document.hidden && RAW.length) render(); }, 30000);
 </script>
 </body>
 </html>
