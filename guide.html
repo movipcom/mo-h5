@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>MO · 导购台</title>
+<style>
+  :root{
+    --bg:#F3F1EC; --surface:#FFFFFF; --surface-2:#FAF9F5;
+    --ink:#16140F; --ink-2:#7C776C; --ink-3:#ABA69B; --line:#E8E5DC; --line-2:#DCD8CD;
+    --done:#3F6B53; --done-bg:#EAF0EB;
+    --todo:#8C7A4E; --todo-bg:#F4EFE2;
+    --bad:#8E3B36; --bad-bg:#F4E5E2;
+    --c1:#5A6B7A; --c2:#8A6B74; --c3:#8A7350; --c4:#4E6F69;
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono","Roboto Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Microsoft YaHei",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;}
+  body{background:#E4E2DC;font-family:var(--sans);color:var(--ink);-webkit-font-smoothing:antialiased;display:flex;justify-content:center;letter-spacing:-.005em;}
+  #app{width:100%;max-width:440px;height:100dvh;height:100vh;background:var(--bg);display:flex;flex-direction:column;position:relative;overflow:hidden;box-shadow:0 0 0 1px rgba(0,0,0,.03),0 30px 70px -30px rgba(0,0,0,.35);}
+  .eyebrow{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-3);font-weight:600;}
+
+  header{flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--line);padding:18px 20px 17px;}
+  .top{display:flex;align-items:center;gap:13px;}
+  .wordmark{width:40px;height:40px;border-radius:2px;flex:0 0 auto;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:700;font-size:14px;letter-spacing:.04em;}
+  .htxt{flex:1;min-width:0;}
+  .htxt h1{margin:5px 0 0;font-size:19px;font-weight:600;letter-spacing:-.02em;display:flex;align-items:center;gap:9px;}
+  .who{font-size:11px;font-weight:600;color:var(--ink-2);border:1px solid var(--line-2);padding:2px 9px;border-radius:99px;letter-spacing:0;}
+  .pill{display:inline-flex;align-items:center;gap:6px;height:25px;padding:0 11px;border-radius:99px;font-size:10.5px;font-weight:600;letter-spacing:.02em;border:1px solid var(--line-2);color:var(--ink-2);cursor:pointer;background:var(--surface);}
+  .pill .led{width:5px;height:5px;border-radius:50%;background:var(--ink-3);}
+  .pill.live{color:var(--done);border-color:#CFE0D3;} .pill.live .led{background:var(--done);}
+  .pill.demo{color:var(--todo);border-color:#E6DAB9;} .pill.demo .led{background:var(--todo);}
+
+  .slots{flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--line);padding:15px 20px 17px;}
+  .slots-l{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;}
+  .slots-l .lib{font-size:10px;letter-spacing:.04em;color:var(--ink-3);font-weight:500;font-family:var(--mono);}
+  .slot-row{display:flex;gap:11px;overflow-x:auto;scrollbar-width:none;}
+  .slot-row::-webkit-scrollbar{display:none;}
+  .slot{flex:0 0 auto;min-width:118px;border:1px solid var(--line-2);border-radius:3px;padding:13px 14px;cursor:pointer;background:var(--surface);position:relative;transition:border-color .15s;}
+  .slot .nm{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600;letter-spacing:-.01em;}
+  .slot .av{width:20px;height:20px;border-radius:2px;color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center;}
+  .slot .ct{font-size:11px;color:var(--ink-3);margin-top:8px;letter-spacing:0;}
+  .slot .ct b{font-family:var(--mono);color:var(--ink-2);font-weight:500;}
+  .slot.sel{border-color:var(--ink);}
+  .serving{display:none;align-items:center;gap:5px;font-size:8px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink);margin-bottom:8px;}
+  .serving i{width:5px;height:5px;border-radius:50%;background:var(--ink);}
+  .slot.sel .serving{display:flex;}
+  .slot.add{min-width:auto;display:flex;align-items:center;justify-content:center;color:var(--ink-3);border-style:dashed;gap:7px;font-size:12.5px;font-weight:600;padding:0 18px;letter-spacing:-.01em;}
+
+  main{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:20px 20px calc(96px + env(safe-area-inset-bottom));}
+  .cart-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:0 2px 16px;}
+  .cart-h .t{font-size:17px;font-weight:600;letter-spacing:-.02em;}
+  .cart-h .s{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);letter-spacing:0;}
+
+  .citem{background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:15px 15px;margin-bottom:11px;display:flex;align-items:center;gap:13px;}
+  .citem .cbody{flex:1;min-width:0;cursor:pointer;}
+  .citem .nm{font-size:14px;font-weight:600;letter-spacing:-.012em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .citem .sub{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;}
+  .swatch{width:11px;height:11px;border-radius:50%;flex:0 0 auto;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12);}
+  .attr{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--ink-2);font-weight:500;}
+  .size-pill{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--ink);border:1px solid var(--line-2);border-radius:2px;padding:1px 6px;letter-spacing:.02em;}
+  .skucode{font-family:var(--mono);font-size:11px;letter-spacing:.02em;color:var(--ink-2);}
+  .skucode.none{color:var(--bad);}
+  .stepper{display:inline-flex;align-items:center;border:1px solid var(--line-2);border-radius:2px;overflow:hidden;flex:0 0 auto;}
+  .stepper button{width:32px;height:34px;border:none;background:var(--surface);font-size:16px;color:var(--ink);cursor:pointer;}
+  .stepper button:active{background:var(--surface-2);}
+  .stepper span{min-width:30px;text-align:center;font-family:var(--mono);font-size:13.5px;font-weight:600;}
+  .rm{width:30px;height:34px;border:none;background:none;color:var(--ink-3);cursor:pointer;display:grid;place-items:center;flex:0 0 auto;}
+  .rm:active{color:var(--bad);}
+
+  /* 配货状态 */
+  .prog{display:flex;align-items:center;gap:12px;padding:0 2px 16px;}
+  .prog .lbl{font-size:11.5px;color:var(--ink-2);font-weight:500;white-space:nowrap;letter-spacing:0;}
+  .prog .lbl b{font-family:var(--mono);color:var(--ink);font-weight:600;}
+  .prog .bar{flex:1;height:4px;border-radius:99px;background:var(--line);overflow:hidden;}
+  .prog .bar i{display:block;height:100%;background:var(--done);border-radius:99px;transition:width .3s;}
+  .stat{display:inline-flex;align-items:center;height:18px;padding:0 7px;border-radius:2px;font-size:10px;font-weight:700;letter-spacing:.06em;}
+  .stat-todo{color:var(--todo);background:var(--todo-bg);}
+  .stat-done{color:var(--done);background:var(--done-bg);}
+  .citem.is-done{background:var(--surface-2);}
+  .citem.is-done .nm{color:var(--ink-2);font-weight:550;}
+  .doneqty{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--ink-3);flex:0 0 auto;}
+
+  .donewrap{margin-top:22px;}
+  .ditem{display:flex;align-items:center;gap:11px;padding:11px 14px;font-size:12.5px;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:3px;margin-top:9px;}
+  .ditem .ck{width:16px;height:16px;color:var(--done);display:grid;place-items:center;flex:0 0 auto;}
+  .ditem .dn{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .ditem .dc{font-family:var(--mono);font-size:11px;color:var(--ink-3);}
+
+  .state{padding:52px 30px;text-align:center;color:var(--ink-3);}
+  .state svg{margin-bottom:16px;opacity:.4;}
+  .state h4{margin:0 0 7px;color:var(--ink-2);font-size:14px;font-weight:600;letter-spacing:-.01em;}
+  .state p{margin:0;font-size:12.5px;line-height:1.7;}
+  .skel{background:var(--surface);border:1px solid var(--line);border-radius:3px;height:70px;margin-bottom:11px;position:relative;overflow:hidden;}
+  .skel::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(0,0,0,.03),transparent);animation:sh 1.3s infinite;}
+  @keyframes sh{100%{transform:translateX(100%)}}
+  .errbar{background:var(--todo-bg);color:#7A6633;font-size:12px;padding:11px 14px;border-radius:3px;margin-bottom:14px;line-height:1.6;border:1px solid #E6DAB9;}
+
+  .addbar{position:absolute;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);padding:13px 20px calc(13px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:14px;}
+  .addbar .sum .n{font-family:var(--mono);font-size:19px;font-weight:600;line-height:1;}
+  .addbar .sum .l{font-size:9px;color:var(--ink-3);margin-top:4px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;}
+  .addbar .scan{flex:1;height:52px;border-radius:3px;border:none;background:var(--ink);color:#fff;font-size:14px;font-weight:600;letter-spacing:.04em;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;}
+  .addbar .scan:active{opacity:.9;} .addbar .scan:disabled{opacity:.4;}
+
+  /* 扫码层 */
+  .scanlayer{position:absolute;inset:0;z-index:50;background:#0B0A09;display:none;flex-direction:column;}
+  .scanlayer.show{display:flex;}
+  .scan-top{flex:0 0 auto;padding:calc(16px + env(safe-area-inset-top)) 20px 16px;display:flex;align-items:center;gap:12px;color:#fff;}
+  .scan-top .stitle{flex:1;font-size:13px;font-weight:600;letter-spacing:.02em;}
+  .scan-top .stitle .av{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:2px;color:#fff;font-size:10px;font-weight:700;vertical-align:-3px;margin-right:6px;}
+  .scan-top .cnt{font-family:var(--mono);font-size:12px;color:#C8B98C;letter-spacing:.04em;}
+  .scan-close{width:34px;height:34px;border-radius:2px;border:none;background:rgba(255,255,255,.12);color:#fff;display:grid;place-items:center;cursor:pointer;}
+  .scan-view{flex:1;position:relative;overflow:hidden;display:grid;place-items:center;}
+  #reader{width:100%;height:100%;}
+  #reader video{width:100%!important;height:100%!important;object-fit:cover!important;}
+  .reticle{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:72%;max-width:300px;height:150px;box-shadow:0 0 0 100vmax rgba(0,0,0,.5);pointer-events:none;}
+  .reticle::before{content:"";position:absolute;inset:0;border:1px solid rgba(255,255,255,.85);}
+  .reticle i{position:absolute;width:18px;height:18px;border:2px solid #C8B98C;}
+  .reticle i:nth-child(1){top:-1px;left:-1px;border-right:none;border-bottom:none;}
+  .reticle i:nth-child(2){top:-1px;right:-1px;border-left:none;border-bottom:none;}
+  .reticle i:nth-child(3){bottom:-1px;left:-1px;border-right:none;border-top:none;}
+  .reticle i:nth-child(4){bottom:-1px;right:-1px;border-left:none;border-top:none;}
+  .scan-hintline{position:absolute;left:0;right:0;bottom:26px;text-align:center;color:rgba(255,255,255,.7);font-size:11px;letter-spacing:.1em;text-transform:uppercase;pointer-events:none;}
+  .scan-foot{flex:0 0 auto;padding:16px 20px calc(18px + env(safe-area-inset-bottom));display:flex;gap:11px;}
+  .scan-foot .mbtn{flex:1;height:46px;border-radius:2px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;font-size:13px;font-weight:600;letter-spacing:.04em;cursor:pointer;}
+  .scan-foot .dbtn{flex:0 0 120px;height:46px;border-radius:2px;border:none;background:#fff;color:var(--ink);font-size:14px;font-weight:600;letter-spacing:.04em;cursor:pointer;}
+  .manual{display:none;flex-direction:column;gap:13px;padding:30px 24px;align-items:center;text-align:center;color:#fff;}
+  .manual.show{display:flex;}
+  .manual p{margin:0;font-size:11px;letter-spacing:.04em;color:rgba(255,255,255,.6);}
+  .manual input{width:100%;border:1px solid rgba(255,255,255,.22);border-radius:2px;padding:15px;font-family:var(--mono);font-size:17px;letter-spacing:.06em;background:rgba(255,255,255,.05);color:#fff;outline:none;text-align:center;}
+  .manual input::placeholder{color:rgba(255,255,255,.35);}
+  .manual .mok{width:100%;height:48px;border-radius:2px;border:none;background:#fff;color:var(--ink);font-size:14px;font-weight:600;letter-spacing:.04em;cursor:pointer;}
+
+  /* 确认卡 */
+  .confirm{position:absolute;left:0;right:0;bottom:0;z-index:55;background:var(--surface);border-radius:6px 6px 0 0;transform:translateY(110%);transition:transform .26s cubic-bezier(.32,.72,0,1);padding:8px 22px calc(20px + env(safe-area-inset-bottom));max-height:86%;overflow-y:auto;}
+  .confirm.show{transform:translateY(0);}
+  .cf-grip{width:34px;height:4px;border-radius:2px;background:var(--line-2);margin:6px auto 14px;}
+  .cf-name{font-size:17px;font-weight:600;letter-spacing:-.02em;line-height:1.35;}
+  .cf-style{font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-top:5px;letter-spacing:.06em;}
+  .cf-l{font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);margin:20px 0 11px;}
+  .cf-opts{display:flex;flex-wrap:wrap;gap:9px;}
+  .cf-opt{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:2px;border:1px solid var(--line-2);background:var(--surface);font-size:13px;font-weight:500;color:var(--ink-2);cursor:pointer;letter-spacing:-.01em;}
+  .cf-opt .sw{width:12px;height:12px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15);}
+  .cf-opt.sel{border-color:var(--ink);color:var(--ink);background:var(--surface);box-shadow:inset 0 0 0 1px var(--ink);}
+  .cf-opt.size{font-family:var(--mono);min-width:48px;justify-content:center;}
+  .cf-opt:disabled{opacity:.32;}
+  .cf-final{display:flex;align-items:center;justify-content:space-between;margin-top:22px;padding:15px 16px;border-radius:3px;background:var(--ink);color:#fff;}
+  .cf-final .fl{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.55);font-weight:600;}
+  .cf-final .fv{font-family:var(--mono);font-size:18px;font-weight:600;letter-spacing:.04em;}
+  .cf-final.empty{background:var(--bad-bg);}
+  .cf-final.empty .fl{color:#A86A64;} .cf-final.empty .fv{color:var(--bad);font-size:12.5px;font-family:var(--sans);font-weight:600;letter-spacing:0;}
+  .cf-row{display:flex;align-items:center;gap:13px;margin-top:16px;}
+  .cf-qty{display:inline-flex;align-items:center;border:1px solid var(--line-2);border-radius:2px;overflow:hidden;}
+  .cf-qty button{width:40px;height:48px;border:none;background:var(--surface);font-size:18px;cursor:pointer;}
+  .cf-qty span{min-width:40px;text-align:center;font-family:var(--mono);font-size:16px;font-weight:600;}
+  .cf-add{flex:1;height:52px;border-radius:2px;border:none;background:var(--ink);color:#fff;font-size:14px;font-weight:600;letter-spacing:.06em;cursor:pointer;}
+  .cf-add:disabled{opacity:.35;}
+  .cf-cancel{width:100%;height:42px;margin-top:10px;border:none;background:none;color:var(--ink-3);font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;}
+
+  /* sheet */
+  .scrim{position:fixed;inset:0;background:rgba(15,13,10,.42);opacity:0;visibility:hidden;transition:opacity .22s;z-index:40;}
+  .scrim.show{opacity:1;visibility:visible;}
+  .sheet{position:absolute;left:0;right:0;bottom:0;z-index:41;background:var(--surface);border-radius:6px 6px 0 0;transform:translateY(100%);transition:transform .3s cubic-bezier(.32,.72,0,1);max-height:92%;display:flex;flex-direction:column;}
+  .sheet.show{transform:translateY(0);}
+  .grip{width:34px;height:4px;border-radius:2px;background:var(--line-2);margin:10px auto 0;flex:0 0 auto;}
+  .sh-head{padding:14px 22px 14px;border-bottom:1px solid var(--line);}
+  .sh-head h2{margin:0;font-size:17px;font-weight:600;letter-spacing:-.02em;line-height:1.35;}
+  .sh-meta{display:flex;align-items:center;gap:9px;margin-top:10px;flex-wrap:wrap;}
+  .st{display:inline-flex;align-items:center;height:22px;padding:0 10px;border-radius:2px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;}
+  .st-todo{color:var(--todo);background:var(--todo-bg);} .st-done{color:var(--done);background:var(--done-bg);}
+  .sh-body{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 22px 20px;}
+  .kv{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 0;border-bottom:1px solid var(--line);font-size:13.5px;}
+  .kv:last-child{border-bottom:none;}
+  .kv .k{color:var(--ink-3);font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;} .kv .v{font-family:var(--mono);text-align:right;color:var(--ink);letter-spacing:.02em;}
+  .kv .v.txt{font-family:var(--sans);letter-spacing:-.01em;}
+  .sh-foot{flex:0 0 auto;padding:14px 22px calc(18px + env(safe-area-inset-bottom));border-top:1px solid var(--line);display:flex;gap:11px;}
+  .btn{flex:1;height:50px;border-radius:2px;border:none;font-size:14px;font-weight:600;letter-spacing:.04em;font-family:inherit;cursor:pointer;}
+  .btn.ghost{background:var(--surface);border:1px solid var(--line-2);color:var(--ink-2);}
+  .btn.danger{background:var(--bad-bg);color:var(--bad);flex:0 0 100px;}
+
+  .toast{position:absolute;left:50%;bottom:108px;transform:translateX(-50%) translateY(8px);background:var(--ink);color:#fff;font-size:12.5px;letter-spacing:.01em;padding:11px 18px;border-radius:2px;opacity:0;pointer-events:none;transition:.2s;z-index:70;white-space:nowrap;max-width:90%;overflow:hidden;text-overflow:ellipsis;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  @media (prefers-reduced-motion:reduce){.sheet,.scrim,.skel::after,.confirm{transition:none;animation:none;}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="top">
+      <div class="wordmark">MO</div>
+      <div class="htxt"><div class="eyebrow">Fitting Studio · 导购台</div><h1>我的接待<span class="who" id="meName">导购</span></h1></div>
+      <span class="pill" id="srcPill" onclick="refresh()"><span class="led"></span><span id="srcTxt">连接中</span></span>
+    </div>
+  </header>
+
+  <div class="slots">
+    <div class="slots-l"><span class="eyebrow">接待中的客户</span><span class="lib" id="libInfo">LOADING…</span></div>
+    <div class="slot-row" id="slotRow"></div>
+  </div>
+
+  <main id="cart"></main>
+
+  <div class="addbar">
+    <div class="sum"><div class="n" id="sumN">0</div><div class="l">件 · 当前车</div></div>
+    <button class="scan" id="scanBtn" onclick="openScan()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="12" rx="1" stroke="currentColor" stroke-width="1.6"/><path d="M7 6v12M11 6v12M15 6v12M18 6v12" stroke="currentColor" stroke-width="1.3"/></svg>
+      扫码加货
+    </button>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <!-- 扫码层 -->
+  <div class="scanlayer" id="scanLayer">
+    <div class="scan-top">
+      <div class="stitle" id="scanTitle"></div>
+      <div class="cnt" id="scanCnt">+0</div>
+      <button class="scan-close" onclick="closeScan()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="scan-view" id="scanView">
+      <div id="reader"></div>
+      <div class="reticle"><i></i><i></i><i></i><i></i></div>
+      <div class="scan-hintline">align barcode within frame</div>
+    </div>
+    <div class="manual" id="manualBox">
+      <p id="manualMsg">手动 / 扫码枪录入</p>
+      <input id="manualInput" inputmode="text" placeholder="商品编码 / 条码" autocomplete="off">
+      <button class="mok" onclick="manualSubmit()">识别</button>
+    </div>
+    <div class="scan-foot">
+      <button class="mbtn" onclick="toggleManual()">手动输入</button>
+      <button class="dbtn" onclick="closeScan()">完成</button>
+    </div>
+
+    <!-- 确认卡 -->
+    <div class="confirm" id="confirmCard">
+      <div class="cf-grip"></div>
+      <div class="cf-name" id="cfName"></div>
+      <div class="cf-style" id="cfStyle"></div>
+      <div class="cf-l">颜色 · Colour</div><div class="cf-opts" id="cfColors"></div>
+      <div class="cf-l">尺码 · Size</div><div class="cf-opts" id="cfSizes"></div>
+      <div class="cf-final" id="cfFinal"><span class="fl">最终商品编码</span><span class="fv" id="cfFinalV">—</span></div>
+      <div class="cf-row">
+        <div class="cf-qty"><button onclick="cfQtyStep(-1)">−</button><span id="cfQty">1</span><button onclick="cfQtyStep(1)">+</button></div>
+        <button class="cf-add" id="cfAdd" onclick="confirmAdd()">加入试衣单</button>
+      </div>
+      <button class="cf-cancel" onclick="confirmCancel()">重扫</button>
+    </div>
+  </div>
+
+  <!-- 明细详情 -->
+  <div class="scrim" id="scrim" onclick="closeSheet()"></div>
+  <div class="sheet" id="sheet">
+    <div class="grip"></div>
+    <div class="sh-head"><h2 id="shName"></h2><div class="sh-meta" id="shMeta"></div></div>
+    <div class="sh-body" id="shBody"></div>
+    <div class="sh-foot" id="shFoot"></div>
+  </div>
+</div>
+
+<script>
+const API='/api/feishu';
+const PRODUCT_TABLE='tblN1KwbizjcEmsO';
+const SLOTS_DEFAULT=['客户1','客户2'];
+const SCAN_CDN='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';
+const SIZE_ORDER=['XS','S','M','L','L/40','XL','2XL','3XL','F'];
+
+const FIELD={ id:'明细ID', customer:'客户', guide:'导购', status:'状态', picker:'捡货员',
+  styleCode:'识别款式编码', name:'商品名称', scanCode:'扫码商品编码', color:'颜色',
+  finalCode:'最终商品编码', spec:'规格', barcode:'条形码', qty:'数量' };
+const PFIELD={ name:'商品名称', code:'商品编码', style:'款式编码', color:'颜色', spec:'规格' };
+const ST_TODO='试衣单', ST_DONE='配货完成';
+
+let RAW=[], LIVE=false, slot='客户1';
+let lastSize={};   // 记住每位顾客上次选的码，作为默认
+let IDX={byCode:{}, styleMap:{}}, libCount=0;
+
+/* 色名 → 色卡 */
+function colorHex(n){
+  n=String(n||'');
+  const m=[['黑','#211E19'],['藏青','#33415C'],['深空','#3B3B40'],['烟','#5B5750'],['碳','#3E3B36'],['灰','#9C988E'],
+  ['白','#ECE9E1'],['麻','#BCAC91'],['燕麦','#C9B79A'],['卡其','#B7A083'],['咖','#8A6A4E'],['棕','#8A6A4E'],['茶','#6E5847'],
+  ['红','#AE463E'],['粉','#D2A2AB'],['樱','#D2A2AB'],['藕','#9F8290'],['紫','#9A7E9C'],['黄','#D6C277'],['酪','#D8CE9E'],
+  ['牛仔','#5C7494'],['蓝','#6F8CAE'],['绿','#7C8264'],['橄榄','#7C8264']];
+  for(const [k,v] of m) if(n.includes(k)) return v;
+  return '#BBB5A9';
+}
+
+/* 通用 */
+function cell(v){
+  if(v==null)return'';
+  if(Array.isArray(v)){
+    if(v.length&&typeof v[0]==='object'){
+      if('text'in v[0])return v.map(s=>s.text).join('');
+      if('name'in v[0])return v.map(s=>s.name).join('、');
+      return v.map(x=>x.text||x.name||'').join('、');
+    } return v.join('、');
+  }
+  if(typeof v==='object')return v.text||v.name||''; return v;
+}
+function num(v){const n=parseFloat(String(cell(v)).replace(/[^\d.\-]/g,''));return isNaN(n)?0:n;}
+function meName(){return document.getElementById('meName').textContent;}
+function jsq(s){return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
+async function post(body){
+  const res=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','X-Proxy-Key':window.__PROXY_KEY||''},body:JSON.stringify(body)});
+  const j=await res.json(); if(!j.ok)throw new Error(j.error||'请求失败'); return j;
+}
+let tt;function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),1800);}
+
+/* 购物车数据 */
+function normalize(items){
+  return items.map(it=>{
+    const f=it.fields||{},g=k=>f[FIELD[k]],r={_id:it.recordId,_raw:f};
+    for(const k in FIELD)r[k]=cell(g(k));
+    r.qtyN=num(g('qty'))||1; r.todo=r.status!==ST_DONE; return r;
+  });
+}
+async function refresh(){
+  document.getElementById('srcTxt').textContent='连接中';
+  try{
+    const res=await fetch(API+'?action=list',{headers:{'X-Proxy-Key':window.__PROXY_KEY||''}});
+    const j=await res.json(); if(!j.ok)throw new Error(j.error||'代理异常');
+    RAW=normalize(j.items); LIVE=true; setSource(true);
+  }catch(e){ RAW=normalize(DEMO); LIVE=false; setSource(false,e.message); }
+  const g=RAW.map(r=>r.guide).find(Boolean); if(g)document.getElementById('meName').textContent=g;
+  const busy=slots().find(s=>activeOf(s).length); if(busy)slot=busy;
+  render(); loadProducts();
+}
+function setSource(live,err){
+  const p=document.getElementById('srcPill');p.className='pill '+(live?'live':'demo');
+  document.getElementById('srcTxt').textContent=live?'已连接飞书':'演示数据'; window.__lastErr=live?null:err;
+}
+
+/* 商品信息表 → SKU 映射 */
+async function loadProducts(){
+  let rows=null;
+  try{
+    const res=await fetch(API+'?action=list&table_id='+PRODUCT_TABLE,{headers:{'X-Proxy-Key':window.__PROXY_KEY||''}});
+    const j=await res.json(); if(j.ok) rows=j.items.map(it=>{const f=it.fields,g=k=>cell(f[PFIELD[k]]); return {style:g('style'),color:g('color'),size:g('spec'),code:g('code'),name:g('name')};});
+  }catch(e){}
+  buildIndex(rows||DEMO_PRODUCTS);
+  document.getElementById('libInfo').textContent=`${libCount} SKU · ${Object.keys(IDX.styleMap).length} 款`;
+  document.getElementById('scanBtn').disabled=false;
+}
+function buildIndex(list){
+  IDX={byCode:{}, styleMap:{}}; libCount=0;
+  list.forEach(p=>{
+    if(!p||!p.style)return; libCount++;
+    const code=String(p.code||'').trim();
+    if(code) IDX.byCode[code]={style:p.style,color:p.color,size:p.size,code,name:p.name};
+    const st=IDX.styleMap[p.style] || (IDX.styleMap[p.style]={name:p.name||'',colors:[],sizesByColor:{},sku:{}});
+    if(p.name&&!st.name)st.name=p.name;
+    if(p.color&&!st.colors.includes(p.color))st.colors.push(p.color);
+    if(p.color){ (st.sizesByColor[p.color]=st.sizesByColor[p.color]||[]); if(p.size&&!st.sizesByColor[p.color].includes(p.size))st.sizesByColor[p.color].push(p.size); }
+    if(p.color&&p.size&&code) st.sku[p.color+'\u0001'+p.size]=code;
+  });
+}
+function sortSizes(arr){ return [...arr].sort((a,b)=>{const ia=SIZE_ORDER.indexOf(a),ib=SIZE_ORDER.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)||String(a).localeCompare(b);}); }
+function recognize(scan){
+  const s=String(scan||'').trim(); if(!s)return null;
+  if(IDX.byCode[s]) return IDX.byCode[s];
+  for(const st in IDX.styleMap){ if(st&&s.startsWith(st)){ return {style:st,color:'',size:'',code:'',name:IDX.styleMap[st].name}; } }
+  return null;
+}
+
+/* 槽位 / 渲染 */
+const slotColors={'客户1':'var(--c1)','客户2':'var(--c2)','客户3':'var(--c3)','客户4':'var(--c4)'};
+function slotColor(s){return slotColors[s]||'#8A857B';}
+function av(s){return `<span class="av" style="background:${slotColor(s)}">${(s||'·').replace(/[^0-9]/g,'')||(s||'·')[0]}</span>`;}
+function slots(){return [...new Set([...SLOTS_DEFAULT,...RAW.map(r=>r.customer).filter(Boolean)])];}
+function activeOf(s){return RAW.filter(r=>r.customer===s&&r.guide===meName()&&r.todo);}
+function doneOf(s){return RAW.filter(r=>r.customer===s&&r.guide===meName()&&!r.todo);}
+function allOf(s){return RAW.filter(r=>r.customer===s&&r.guide===meName()).slice().sort((x,y)=>(x.todo===y.todo)?0:(x.todo?-1:1));}
+function cartCount(s){return allOf(s).reduce((x,r)=>x+r.qtyN,0);}
+function pickSlot(s){slot=s;render();}
+function newGuest(){
+  const free=slots().find(s=>activeOf(s).length===0);
+  if(free){slot=free;toast('开始接待 '+free);render();}
+  else toast('客户槽位都在接待中，可在飞书给「客户」字段加客户3');
+}
+
+function render(){
+  const sr=document.getElementById('slotRow');
+  sr.innerHTML=slots().map(s=>{
+    const a=activeOf(s),q=a.reduce((x,r)=>x+r.qtyN,0),free=a.length===0;
+    return `<div class="slot ${s===slot?'sel':''}" onclick="pickSlot('${s}')">
+      <div class="serving"><i></i>接待中</div>
+      <div class="nm">${av(s)}${s}</div>
+      <div class="ct">${free?'空闲 · 可接新客':`<b>${a.length}</b> 款 · <b>${q}</b> 件在试`}</div></div>`;
+  }).join('')+`<div class="slot add" onclick="newGuest()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>接新客</div>`;
+
+  const a=activeOf(slot), all=allOf(slot), done=doneOf(slot), q=cartCount(slot);
+  document.getElementById('sumN').textContent=q;
+  const main=document.getElementById('cart');
+  if(!RAW.length){main.innerHTML='<div class="skel"></div>'.repeat(4);return;}
+  let head=''; if(!LIVE)head=`<div class="errbar">演示数据 — 点「扫码加货」→「手动输入」敲 D0902M2 或 L1749，在确认卡里选颜色尺码看最终商品编码。</div>`;
+  let body=`<div class="cart-h"><span class="t">${slot} · 试衣单</span><span class="s">${all.length} 款 / ${q} 件</span></div>`;
+  if(!all.length){
+    body+=`<div class="state"><svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M5 7h14l-1.2 11a2 2 0 01-2 1.8H8.2a2 2 0 01-2-1.8L5 7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M9 7a3 3 0 016 0" stroke="currentColor" stroke-width="1.4"/></svg><h4>试衣单是空的</h4><p>扫吊牌条码 → 选颜色尺码 → 识别最终商品编码</p></div>`;
+  }else{
+    const pct=all.length?Math.round(done.length/all.length*100):0;
+    body+=`<div class="prog"><span class="lbl">配货进度 <b>${done.length}</b>/<b>${all.length}</b>${a.length?` · 待配 <b>${a.length}</b>`:' · 全部已到'}</span><span class="bar"><i style="width:${pct}%"></i></span></div>`;
+    body+=all.map(citem).join('');
+  }
+  main.innerHTML=head+body;
+}
+function citem(r){
+  const noFinal=!r.finalCode;
+  const stat=r.todo?`<span class="stat stat-todo">待配货</span>`
+                   :`<span class="stat stat-done">已配完${r.picker?' · '+r.picker:''}</span>`;
+  const right=r.todo
+    ? `<div class="stepper"><button onclick='stepItem("${r._id}",-1)'>−</button><span id="q_${r._id}">${r.qtyN}</span><button onclick='stepItem("${r._id}",1)'>+</button></div>
+       <button class="rm" onclick='removeItem("${r._id}")' aria-label="移除"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>`
+    : `<span class="doneqty">×${r.qtyN}</span>`;
+  return `<div class="citem ${r.todo?'':'is-done'}">
+    <div class="cbody" onclick='openSheet("${r._id}")'>
+      <div class="nm">${r.name||'未匹配'}</div>
+      <div class="sub">${r.color?`<span class="attr"><span class="swatch" style="background:${colorHex(r.color)}"></span>${r.color}</span>`:''}${r.spec?`<span class="size-pill">${r.spec}</span>`:''}<span class="skucode ${noFinal?'none':''}">${r.finalCode||'断码'}</span>${stat}</div>
+    </div>
+    ${right}
+  </div>`;
+}
+
+/* 扫码 */
+let h5q=null, scanning=false, lastCode='', lastT=0, addedCount=0, actx=null, paused=false;
+function loadScanLib(){return new Promise(res=>{ if(window.Html5Qrcode)return res(true); const s=document.createElement('script');s.src=SCAN_CDN;s.onload=()=>res(true);s.onerror=()=>res(false);document.head.appendChild(s);});}
+function beep(){ try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); const o=actx.createOscillator(),g=actx.createGain(); o.type='sine';o.frequency.value=920;o.connect(g);g.connect(actx.destination); const t=actx.currentTime; g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.22,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+.12); o.start(t);o.stop(t+.13);}catch(e){} if(navigator.vibrate)navigator.vibrate(28); }
+function updateScanTop(){ document.getElementById('scanTitle').innerHTML=`为 ${av(slot)}${slot} 扫码`; document.getElementById('scanCnt').textContent=`+${addedCount}`; }
+
+async function openScan(){
+  addedCount=0; lastCode=''; paused=false; updateScanTop();
+  document.getElementById('confirmCard').classList.remove('show');
+  document.getElementById('manualBox').classList.remove('show');
+  document.getElementById('scanView').style.display='';
+  document.getElementById('scanLayer').classList.add('show');
+  const ok=await loadScanLib();
+  if(!ok||!window.Html5Qrcode){ manualMode('扫码组件未加载，可手动 / 扫码枪录入'); return; }
+  try{
+    const fmts = window.Html5QrcodeSupportedFormats ? [
+      Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E,
+      Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.CODE_39,Html5QrcodeSupportedFormats.ITF,Html5QrcodeSupportedFormats.CODABAR,Html5QrcodeSupportedFormats.QR_CODE
+    ] : undefined;
+    h5q=new Html5Qrcode('reader',{formatsToSupport:fmts,verbose:false});
+    await h5q.start({facingMode:'environment'},{fps:10,qrbox:{width:260,height:150}},onDecode,()=>{});
+    scanning=true;
+  }catch(e){ manualMode('无法打开相机（'+(e.message||e)+'），可手动输入'); }
+}
+function onDecode(text){
+  if(paused)return;
+  const now=Date.now(); if(text===lastCode && now-lastT<1500)return;
+  lastCode=text; lastT=now; beep(); openConfirm(text);
+}
+async function closeScan(){
+  if(h5q&&scanning){ try{await h5q.stop();}catch(e){} try{h5q.clear();}catch(e){} }
+  h5q=null; scanning=false; paused=false;
+  document.getElementById('scanLayer').classList.remove('show'); render();
+}
+function manualMode(msg){
+  document.getElementById('scanView').style.display='none';
+  document.getElementById('manualMsg').textContent=msg||'手动 / 扫码枪录入';
+  document.getElementById('manualBox').classList.add('show');
+  setTimeout(()=>document.getElementById('manualInput').focus(),200);
+}
+function toggleManual(){
+  const m=document.getElementById('manualBox');
+  if(m.classList.contains('show')){ m.classList.remove('show'); document.getElementById('scanView').style.display=''; }
+  else manualMode('手动 / 扫码枪录入');
+}
+function manualSubmit(){ const v=document.getElementById('manualInput').value.trim(); if(!v)return; openConfirm(v); document.getElementById('manualInput').value=''; }
+document.getElementById('manualInput').addEventListener('keydown',e=>{ if(e.key==='Enter')manualSubmit(); });
+
+/* 确认卡：颜色/尺码映射 → 最终商品编码 */
+let cf={scan:'',style:'',name:'',color:'',size:'',qty:1,final:''};
+function openConfirm(scan){
+  const r=recognize(scan);
+  if(!r){ toast('未在商品库匹配到：'+scan); return; }
+  const st=IDX.styleMap[r.style];
+  cf={scan:String(scan).trim(), style:r.style, name:(st&&st.name)||r.name||'', color:'', size:'', qty:1, final:''};
+  cf.color = (r.color && st.colors.includes(r.color)) ? r.color : st.colors[0]||'';
+  const sizes=sortSizes(st.sizesByColor[cf.color]||[]);
+  const pref=lastSize[slot];
+  cf.size = (pref && sizes.includes(pref)) ? pref : (r.size && sizes.includes(r.size) ? r.size : (sizes[0]||''));
+  paused=true;
+  document.getElementById('cfName').textContent=cf.name||'（无名称）';
+  document.getElementById('cfStyle').textContent='STYLE '+cf.style;
+  document.getElementById('cfQty').textContent='1';
+  renderConfirm();
+  document.getElementById('confirmCard').classList.add('show');
+}
+function renderConfirm(){
+  const st=IDX.styleMap[cf.style]||{colors:[],sizesByColor:{},sku:{}};
+  document.getElementById('cfColors').innerHTML=st.colors.map(c=>
+    `<button class="cf-opt ${cf.color===c?'sel':''}" onclick="cfPickColor('${jsq(c)}')"><span class="sw" style="background:${colorHex(c)}"></span>${c}</button>`).join('')||'<span class="skucode">该款无颜色数据</span>';
+  const sizes=sortSizes(st.sizesByColor[cf.color]||[]);
+  document.getElementById('cfSizes').innerHTML=sizes.map(s=>
+    `<button class="cf-opt size ${cf.size===s?'sel':''}" onclick="cfPickSize('${jsq(s)}')">${s}</button>`).join('')||'<span class="skucode">该色无尺码</span>';
+  const final=st.sku[cf.color+'\u0001'+cf.size]||'';
+  const box=document.getElementById('cfFinal'), v=document.getElementById('cfFinalV');
+  if(final){ box.classList.remove('empty'); v.textContent=final; }
+  else { box.classList.add('empty'); v.textContent='该颜色 + 尺码无对应货品（断码）'; }
+  cf.final=final;
+  document.getElementById('cfAdd').disabled = !(cf.color&&cf.size);
+  document.getElementById('cfAdd').textContent = final ? '加入试衣单' : '仍记录（断码）';
+}
+function cfPickColor(c){ cf.color=c; const sizes=sortSizes(IDX.styleMap[cf.style].sizesByColor[c]||[]); if(!sizes.includes(cf.size))cf.size=(lastSize[slot]&&sizes.includes(lastSize[slot]))?lastSize[slot]:(sizes[0]||''); renderConfirm(); }
+function cfPickSize(s){ cf.size=s; renderConfirm(); }
+function cfQtyStep(d){ cf.qty=Math.max(1,cf.qty+d); document.getElementById('cfQty').textContent=cf.qty; }
+function confirmCancel(){ document.getElementById('confirmCard').classList.remove('show'); paused=false; lastCode=''; }
+
+async function confirmAdd(){
+  const final=cf.final||'';
+  lastSize[slot]=cf.size;   // 记住这位顾客的码作为后续默认
+  const ex=RAW.find(r=>r.customer===slot && r.guide===meName() && r.todo && (final? r.finalCode===final : (r.styleCode===cf.style&&r.color===cf.color&&r.spec===cf.size)));
+  if(ex){
+    ex.qtyN+=cf.qty; addedCount+=cf.qty; updateScanTop();
+    if(LIVE){ try{ await post({action:'update',recordId:ex._id,fields:{[FIELD.qty]:ex.qtyN}}); }catch(e){ toast('数量同步失败'); } }
+    finishAdd(); return;
+  }
+  const fields={[FIELD.customer]:slot,[FIELD.status]:ST_TODO,[FIELD.qty]:cf.qty,
+    [FIELD.scanCode]:cf.scan,[FIELD.barcode]:cf.scan,[FIELD.styleCode]:cf.style,
+    [FIELD.name]:cf.name,[FIELD.color]:cf.color,[FIELD.spec]:cf.size};
+  if(final)fields[FIELD.finalCode]=final;
+  if(!LIVE){
+    RAW.unshift(...normalize([{recordId:'new'+Date.now()+Math.floor(Math.random()*999),fields:{...fields,[FIELD.guide]:[{name:meName()}]}}]));
+    addedCount+=cf.qty; updateScanTop(); finishAdd(); return;
+  }
+  try{
+    const j=await post({action:'create',fields});
+    RAW.unshift(normalize([{recordId:j.record.record_id,fields:j.record.fields}])[0]);
+    addedCount+=cf.qty; updateScanTop(); finishAdd();
+  }catch(e){ toast('加入失败：'+e.message); }
+}
+function finishAdd(){
+  document.getElementById('confirmCard').classList.remove('show');
+  paused=false; lastCode='';
+  toast('✓ '+cf.color+' '+cf.size+' · '+(cf.final||'断码'));
+  render();
+}
+
+/* 加减 / 移除 */
+let stepTimers={};
+async function stepItem(id,d){
+  const r=RAW.find(x=>x._id===id); r.qtyN=Math.max(1,r.qtyN+d);
+  const el=document.getElementById('q_'+id); if(el)el.textContent=r.qtyN;
+  document.getElementById('sumN').textContent=cartCount(slot);
+  if(!LIVE)return;
+  clearTimeout(stepTimers[id]); stepTimers[id]=setTimeout(async()=>{ try{await post({action:'update',recordId:id,fields:{[FIELD.qty]:r.qtyN}});}catch(e){toast('数量同步失败');} },500);
+}
+async function removeItem(id){
+  const r=RAW.find(x=>x._id===id);
+  if(!confirm(`移除「${r.name||r.finalCode||r.scanCode}」？`))return false;
+  if(!LIVE){ RAW=RAW.filter(x=>x._id!==id); toast('已移除（演示）'); render(); return true; }
+  try{ await post({action:'delete',recordId:id}); RAW=RAW.filter(x=>x._id!==id); toast('已移除'); render(); return true; }
+  catch(e){ toast('移除失败：'+e.message); return false; }
+}
+function removeCur(){ removeItem(cur._id).then(ok=>{ if(ok)closeSheet(); }); }
+
+/* 详情 */
+let cur=null;
+function openSheet(id){
+  cur=RAW.find(r=>r._id===id);
+  document.getElementById('shName').textContent=cur.name||'未匹配';
+  document.getElementById('shMeta').innerHTML=`<span class="st st-${cur.todo?'todo':'done'}">${cur.todo?'试衣单':'已配完'}</span>${av(cur.customer)}<span class="attr">${cur.customer}</span>`;
+  const rows=[['数量',cur.qtyN],['颜色',cur.color,'txt'],['尺码',cur.spec],['识别款式编码',cur.styleCode],['最终商品编码',cur.finalCode||'断码·无'],['扫码商品编码',cur.scanCode],['导购',cur.guide||'—','txt'],['捡货员',cur.picker||'—','txt']];
+  document.getElementById('shBody').innerHTML=rows.map(([k,v,t])=>`<div class="kv"><span class="k">${k}</span><span class="v ${t==='txt'?'txt':''}">${v||'—'}</span></div>`).join('');
+  document.getElementById('shFoot').innerHTML = cur.todo
+    ? `<button class="btn danger" onclick="removeCur()">移除</button><button class="btn ghost" onclick="closeSheet()">关闭</button>`
+    : `<button class="btn ghost" onclick="closeSheet()">关闭</button>`;
+  document.getElementById('scrim').classList.add('show'); document.getElementById('sheet').classList.add('show');
+}
+function closeSheet(){document.getElementById('scrim').classList.remove('show');document.getElementById('sheet').classList.remove('show');}
+
+/* 演示数据 */
+const DEMO=[
+  ['客户1','Dokky【俱乐部字母T-D0902】印花字母短袖T恤','藏青','M','D0902M2','D0902','D0902S3', ST_TODO,'小满',''],
+  ['客户1','Dokky【南法波点裙D0685】小复古百褶半身裙','深藏青','F','D0685F1','D0685','D0685M1', ST_TODO,'小满',''],
+  ['客户1','Dokky【缪系菱格D0683】复古菱格Polo领针织衫','燕麦色','L','D0683L1','D0683','D0683M1', ST_DONE,'小满','阿强'],
+  ['客户2','LIZE【L1749】亚麻直筒裤','咖色','M','L1749M6','L1749','L1749S6', ST_DONE,'小满','阿强'],
+].map((a,i)=>({recordId:'demo'+i,fields:{
+  [FIELD.id]:i+1,[FIELD.customer]:a[0],[FIELD.name]:a[1],[FIELD.color]:a[2],[FIELD.spec]:a[3],
+  [FIELD.finalCode]:a[4],[FIELD.styleCode]:a[5],[FIELD.scanCode]:a[6],[FIELD.barcode]:a[6],[FIELD.qty]:1,
+  [FIELD.status]:a[7],[FIELD.guide]:[{name:a[8]}],[FIELD.picker]:a[9]?[{name:a[9]}]:[],
+}}));
+const DEMO_PRODUCTS=(()=>{
+  const out=[];
+  const styles=[
+    {style:'D0902',name:'Dokky【俱乐部字母T-D0902】印花字母短袖T恤',colors:[['极简白','1'],['藏青','2'],['高级黑','3']],sizes:['S','M','L','XL']},
+    {style:'D0685',name:'Dokky【南法波点裙D0685】小复古百褶半身裙',colors:[['深藏青','1'],['黑色波点','2']],sizes:['F']},
+    {style:'L1749',name:'LIZE【L1749】亚麻直筒裤',colors:[['橘棕色','1'],['白色','2'],['原麻色','3'],['咖色','6']],sizes:['S','M','L','XL']},
+    {style:'D0005',name:'Dokky「刚需小U领」显瘦坑条正肩T恤D0005',colors:[['云朵白','1'],['热颂红','2'],['高级黑','3']],sizes:['S','M','L','XL']},
+  ];
+  styles.forEach(s=>s.colors.forEach(([c,ci])=>s.sizes.forEach(sz=>{ out.push({style:s.style,name:s.name,color:c,size:sz,code:s.style+sz+ci}); })));
+  return out;
+})();
+
+refresh();
+</script>
+</body>
+</html>
