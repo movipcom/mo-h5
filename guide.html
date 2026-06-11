@@ -197,6 +197,36 @@
   .btn.danger{background:var(--bad-bg);color:var(--bad);flex:0 0 100px;}
 
   .toast{position:absolute;left:50%;bottom:108px;transform:translateX(-50%) translateY(8px);background:var(--ink);color:#fff;font-size:12.5px;letter-spacing:.01em;padding:11px 18px;border-radius:2px;opacity:0;pointer-events:none;transition:.2s;z-index:70;white-space:nowrap;max-width:90%;overflow:hidden;text-overflow:ellipsis;}
+  .colayer{position:absolute;inset:0;z-index:45;background:var(--bg);display:none;flex-direction:column;}
+  .colayer.show{display:flex;animation:appIn .3s cubic-bezier(.2,.7,.3,1) both;}
+  .co-head{flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--line);padding:16px 18px;display:flex;align-items:center;gap:14px;}
+  .co-back{border:none;background:none;color:var(--ink-2);font-size:14px;font-family:inherit;cursor:pointer;padding:0;}
+  .co-title{font-size:16px;font-weight:600;letter-spacing:-.01em;}
+  .co-stat{flex:0 0 auto;padding:15px 18px;background:var(--surface);border-bottom:1px solid var(--line);display:flex;gap:22px;align-items:baseline;}
+  .co-stat .big{font-family:var(--mono);font-size:25px;font-weight:600;letter-spacing:-.02em;}
+  .co-stat .lb{font-size:10.5px;color:var(--ink-3);margin-top:2px;}
+  .co-stat .rate{margin-left:auto;text-align:right;}
+  .co-stat .rate .big{color:var(--done);}
+  .co-list{flex:1;overflow-y:auto;padding:14px 16px;-webkit-overflow-scrolling:touch;}
+  .co-item{background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:13px 14px;margin-bottom:11px;transition:.2s;}
+  .co-item.buy{border-color:#C2D4C8;background:linear-gradient(0deg,var(--done-bg),#fff 72%);}
+  .co-item.ret{background:var(--surface-2);}
+  .co-i-nm{font-size:13.5px;font-weight:600;letter-spacing:-.01em;}
+  .co-i-sub{margin-top:6px;display:flex;gap:8px;align-items:center;font-size:11px;color:var(--ink-2);}
+  .co-i-sub .skucode{font-family:var(--mono);color:var(--ink-3);}
+  .co-acts{margin-top:12px;display:flex;gap:9px;}
+  .co-btn{flex:1;height:40px;border-radius:2px;border:1px solid var(--line);background:var(--surface);font-size:13.5px;font-weight:600;font-family:inherit;color:var(--ink-2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;transition:.15s;}
+  .co-btn:active{transform:scale(.97);}
+  .co-btn.buy.on{background:var(--done);border-color:var(--done);color:#fff;}
+  .co-btn.no.on{background:var(--ink);border-color:var(--ink);color:#fff;}
+  .co-ret{margin-top:10px;display:flex;gap:8px;align-items:center;padding-top:10px;border-top:1px dashed var(--line);}
+  .co-ret .tip{font-size:11.5px;color:var(--bad);flex:1;font-weight:500;}
+  .co-ret .tip.ok{color:var(--done);}
+  .co-ret button{height:34px;padding:0 13px;border-radius:2px;border:1px solid var(--line);background:var(--surface);font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;color:var(--ink);}
+  .co-ret button.scan{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .co-foot{flex:0 0 auto;padding:14px 18px calc(14px + env(safe-area-inset-bottom));background:var(--surface);border-top:1px solid var(--line);}
+  .co-done{width:100%;height:50px;border:none;border-radius:3px;background:var(--ink);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;letter-spacing:.01em;}
+  .co-done:disabled{opacity:.35;}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
   @media (prefers-reduced-motion:reduce){.sheet,.scrim,.skel::after,.confirm{transition:none;animation:none;}}
 </style>
@@ -275,6 +305,17 @@
     <div class="sh-body" id="shBody"></div>
     <div class="sh-foot" id="shFoot"></div>
   </div>
+
+  <!-- 试衣结算窗口 -->
+  <div class="colayer" id="coLayer">
+    <div class="co-head">
+      <button class="co-back" onclick="closeCheckout()">取消</button>
+      <div class="co-title">试衣结算 · <span id="coSlot"></span></div>
+    </div>
+    <div class="co-stat" id="coStat"></div>
+    <div class="co-list" id="coList"></div>
+    <div class="co-foot"><button class="co-done" id="coDone" onclick="commitCheckout()" disabled>确认结束</button></div>
+  </div>
 </div>
 
 <script>
@@ -284,7 +325,7 @@ const SLOTS_DEFAULT=['客户1','客户2'];
 const SCAN_CDN='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';
 const SIZE_ORDER=['XS','S','M','L','L/40','XL','2XL','3XL','F'];
 
-const FIELD={ id:'明细ID', customer:'客户', guide:'导购', guidePerson:'导购员', status:'状态', picker:'捡货员', archive:'试衣完成', oos:'缺货',
+const FIELD={ id:'明细ID', customer:'客户', guide:'导购', guidePerson:'导购员', status:'状态', picker:'捡货员', archive:'试衣完成', oos:'缺货', bought:'已购买', returned:'已归位',
   styleCode:'识别款式编码', name:'商品名称', scanCode:'扫码商品编码', color:'颜色',
   finalCode:'最终商品编码', spec:'规格', barcode:'条形码', qty:'数量' };
 const PFIELD={ name:'商品名称', code:'商品编码', style:'款式编码', color:'颜色', spec:'规格' };
@@ -335,7 +376,7 @@ function normalize(items){
   return items.map(it=>{
     const f=it.fields||{},g=k=>f[FIELD[k]],r={_id:it.recordId,_raw:f};
     for(const k in FIELD)r[k]=cell(g(k));
-    r.qtyN=num(g('qty'))||1; r.todo=r.status!==ST_DONE; r.archived=(r.archive===true||r.archive==='true'); r.outStock=(r.oos===true||r.oos==='true'); return r;
+    r.qtyN=num(g('qty'))||1; r.todo=r.status!==ST_DONE; r.archived=(r.archive===true||r.archive==='true'); r.outStock=(r.oos===true||r.oos==='true'); r.bought=(r.bought===true||r.bought==='true'); r.returned=(r.returned===true||r.returned==='true'); return r;
   });
 }
 async function refresh(){
@@ -398,20 +439,68 @@ function activeOf(s){return RAW.filter(r=>r.customer===s&&!r.archived&&r.todo);}
 function doneOf(s){return RAW.filter(r=>r.customer===s&&!r.archived&&!r.todo);}
 function allOf(s){return RAW.filter(r=>r.customer===s&&!r.archived).slice().sort((x,y)=>(x.todo===y.todo)?0:(x.todo?-1:1));}
 function cartCount(s){return allOf(s).reduce((x,r)=>x+r.qtyN,0);}
-async function archiveSlot(){
+/* 试衣结算：逐件标 已购买/未购买，未购买需归位，全部处理完才归档 */
+let coState={}, returnScanMode=false, scanReturnId=null;
+function archiveSlot(){ openCheckout(); }   // 「试衣完成」入口
+function openCheckout(){
   const items=allOf(slot);
   if(!items.length){toast('当前没有可结束的试衣单');return;}
-  if(!confirm(`结束「${slot}」的接待？\n本单 ${items.length} 件会从 App 移除，飞书表里打勾保留存档（不删除）。`))return;
+  items.forEach(r=>{ if(!coState[r._id]) coState[r._id]={bought:(r.bought?true:null), returned:!!r.returned}; });
+  document.getElementById('coSlot').textContent=slot;
+  document.getElementById('coLayer').classList.add('show');
+  renderCheckout();
+}
+function closeCheckout(){ document.getElementById('coLayer').classList.remove('show'); }
+function coSetBought(id,val){ const s=coState[id]; if(!s)return; s.bought=val; if(val)s.returned=false; renderCheckout(); }
+function coReturnManual(id){ if(coState[id]){coState[id].returned=true; renderCheckout();} }
+function coScanReturn(id){ openReturnScan(id); }
+function markReturned(id){ if(coState[id])coState[id].returned=true; }
+function coResolved(r){ const s=coState[r._id]; return s && (s.bought===true || (s.bought===false && s.returned===true)); }
+function renderCheckout(){
+  const items=allOf(slot);
+  let buy=0, tot=0;
+  items.forEach(r=>{ tot+=r.qtyN; if(coState[r._id]&&coState[r._id].bought===true)buy+=r.qtyN; });
+  const rate=tot?Math.round(buy/tot*100):0;
+  document.getElementById('coStat').innerHTML=`<div><div class="big">${buy}/${tot}</div><div class="lb">已购买 / 试衣件数</div></div><div class="rate"><div class="big">${rate}%</div><div class="lb">转化率</div></div>`;
+  document.getElementById('coList').innerHTML=items.map(r=>{
+    const s=coState[r._id]||{bought:null,returned:false};
+    const cls=s.bought===true?'buy':(s.bought===false?'ret':'');
+    let ret='';
+    if(s.bought===false){
+      ret=`<div class="co-ret"><span class="tip ${s.returned?'ok':''}">${s.returned?'✓ 已归位回流小仓':'未购买 · 需归位'}</span>`+
+        (s.returned?'':`<button class="scan" onclick='coScanReturn("${r._id}")'>扫码归位</button><button onclick='coReturnManual("${r._id}")'>已归位</button>`)+`</div>`;
+    }
+    return `<div class="co-item ${cls}">
+      <div class="co-i-nm">${r.name||'未匹配'}</div>
+      <div class="co-i-sub">${r.color?`<span class="swatch" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${colorHex(r.color)};box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)"></span>${r.color}`:''} ${r.spec||''} <span class="skucode">${r.finalCode||'断码'}</span>${r.qtyN>1?' · ×'+r.qtyN:''}</div>
+      <div class="co-acts">
+        <button class="co-btn buy ${s.bought===true?'on':''}" onclick='coSetBought("${r._id}",true)'>✓ 已购买</button>
+        <button class="co-btn no ${s.bought===false?'on':''}" onclick='coSetBought("${r._id}",false)'>未购买</button>
+      </div>${ret}
+    </div>`;
+  }).join('');
+  const allOK=items.every(coResolved);
+  const left=items.filter(r=>!coResolved(r)).length;
+  const b=document.getElementById('coDone');
+  b.disabled=!allOK; b.textContent=allOK?`确认结束 · 归档（买 ${buy}/${tot}）`:`还有 ${left} 件未处理`;
+}
+async function commitCheckout(){
+  const items=allOf(slot);
+  if(!items.every(coResolved)){toast('还有未处理的件');return;}
   const done=slot;
-  items.forEach(r=>r.archived=true);   // 立刻移除、释放槽位
+  const ups=items.map(r=>{ const s=coState[r._id]; return {r, fields:{[FIELD.bought]:s.bought===true,[FIELD.returned]:(s.bought===false?!!s.returned:false),[FIELD.archive]:true}}; });
+  ups.forEach(u=>{ u.r.bought=u.fields[FIELD.bought]; u.r.returned=u.fields[FIELD.returned]; u.r.archived=true; });   // 乐观
+  closeCheckout();
   extraSlots=extraSlots.filter(x=>x!==done);
   slot=slots().find(s=>activeOf(s).length===0)||'客户1';
-  toast(done+' 接待已结束'); render();
+  coState={};
+  toast(done+' 已结束 · 已存档'); render();
   if(!LIVE)return;
-  const real=items.filter(r=>!String(r._id).startsWith('tmp'));
-  Promise.all(real.map(r=>post({action:'update',recordId:r._id,fields:{[FIELD.archive]:true}})))
-    .catch(e=>{ items.forEach(r=>r.archived=false); toast('存档同步失败，已还原：'+(e.message||e)); render(); });
+  const real=ups.filter(u=>!String(u.r._id).startsWith('tmp'));
+  Promise.all(real.map(u=>post({action:'update',recordId:u.r._id,fields:u.fields})))
+    .catch(e=>{ ups.forEach(u=>{u.r.archived=false;}); toast('存档同步失败，已还原：'+(e.message||e)); render(); });
 }
+function openReturnScan(id){ returnScanMode=true; scanReturnId=id; openScan(); const t=document.getElementById('scanTitle'); if(t)t.innerHTML='扫码归位 · 扫一下即可'; const c=document.getElementById('scanCnt'); if(c)c.textContent=''; }
 function pickSlot(s){slot=s;render();}
 function newGuest(){
   const free=slots().find(s=>activeOf(s).length===0);
@@ -498,12 +587,16 @@ async function toggleTorch(){
 function onDecode(text){
   if(paused)return;
   const now=Date.now(); if(text===lastCode && now-lastT<1500)return;
-  lastCode=text; lastT=now; beep(); openConfirm(text);
+  lastCode=text; lastT=now; beep();
+  if(returnScanMode){ markReturned(scanReturnId); closeScan(); return; }   // 归位:扫一下即归位
+  openConfirm(text);
 }
 async function closeScan(){
   if(h5q&&scanning){ try{await h5q.stop();}catch(e){} try{h5q.clear();}catch(e){} }
   h5q=null; scanning=false; paused=false;
-  document.getElementById('scanLayer').classList.remove('show'); render();
+  document.getElementById('scanLayer').classList.remove('show');
+  const wasRet=returnScanMode; returnScanMode=false; scanReturnId=null;
+  if(wasRet){ openCheckout(); } else { render(); }
 }
 function manualMode(msg){
   document.getElementById('scanView').style.display='none';
@@ -669,6 +762,7 @@ async function silentRefresh(){
   if(document.getElementById('scanLayer').classList.contains('show'))return;
   if(document.getElementById('sheet').classList.contains('show'))return;
   if(document.getElementById('confirmCard').classList.contains('show'))return;
+  if(document.getElementById('coLayer').classList.contains('show'))return;
   try{
     const res=await fetch(API+'?action=list',{headers:{'X-Proxy-Key':window.__PROXY_KEY||''}});
     const j=await res.json(); if(!j.ok)return;
