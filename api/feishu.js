@@ -43,22 +43,55 @@ async function listAll(token, appToken, tableId) {
   return items;
 }
 
-async function createRecord(token, appToken, tableId, fields) {
+let fieldCache = {}; // tableId -> { names:Set, exp }
+async function getFieldNames(token, appToken, tableId) {
+  const now = Date.now(); const c = fieldCache[tableId];
+  if (c && now < c.exp) return c.names;
+  try {
+    const r = await fetch(`${HOST}/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}/fields?page_size=200`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const j = await r.json();
+    if (j.code !== 0) return null;
+    const names = new Set((j.data.items || []).map((f) => f.field_name));
+    fieldCache[tableId] = { names, exp: now + 60000 };
+    return names;
+  } catch (e) { return null; }
+}
+function pruneFields(fields, names) {
+  const out = {}; for (const k in fields) { if (names.has(k)) out[k] = fields[k]; } return out;
+}
+
+async function rawCreate(token, appToken, tableId, fields) {
   const r = await fetch(`${HOST}/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}/records`, {
     method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ fields }),
   });
-  const j = await r.json();
+  return r.json();
+}
+async function createRecord(token, appToken, tableId, fields) {
+  let j = await rawCreate(token, appToken, tableId, fields);
+  if (j.code === 1254045) { // FieldNameNotFound：剔除表里不存在的字段后重试
+    const names = await getFieldNames(token, appToken, tableId);
+    if (names) j = await rawCreate(token, appToken, tableId, pruneFields(fields, names));
+  }
   if (j.code !== 0) throw new Error(`新增失败：${j.code} ${j.msg}`);
   return j.data.record;
 }
 
-async function updateRecord(token, appToken, tableId, recordId, fields) {
+async function rawUpdate(token, appToken, tableId, recordId, fields) {
   const r = await fetch(`${HOST}/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}/records/${recordId}`, {
     method: 'PUT', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ fields }),
   });
-  const j = await r.json();
+  return r.json();
+}
+async function updateRecord(token, appToken, tableId, recordId, fields) {
+  let j = await rawUpdate(token, appToken, tableId, recordId, fields);
+  if (j.code === 1254045) {
+    const names = await getFieldNames(token, appToken, tableId);
+    if (names) j = await rawUpdate(token, appToken, tableId, recordId, pruneFields(fields, names));
+  }
   if (j.code !== 0) throw new Error(`更新失败：${j.code} ${j.msg}`);
   return j.data.record;
 }
