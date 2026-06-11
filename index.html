@@ -306,6 +306,16 @@ const DEMO=[
 }}));
 
 refresh();
+/* 后台温和轮询：导购台新下的单、缺货变化自动同步显示 */
+async function silentRefresh(){
+  if(!LIVE)return;
+  try{
+    const res=await fetch(API+'?action=list',{headers:{'X-Proxy-Key':window.__PROXY_KEY||''}});
+    const j=await res.json(); if(!j.ok)return;
+    RAW=normalize(j.items); render();
+  }catch(e){}
+}
+setInterval(silentRefresh, 25000);
 </script>
 </body>
 </html>

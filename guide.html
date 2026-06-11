@@ -89,6 +89,11 @@
   .stat{display:inline-flex;align-items:center;height:18px;padding:0 7px;border-radius:2px;font-size:10px;font-weight:700;letter-spacing:.06em;}
   .stat-todo{color:var(--todo);background:var(--todo-bg);}
   .stat-done{color:var(--done);background:var(--done-bg);}
+  .stat-oos{color:#fff;background:var(--bad);letter-spacing:.04em;animation:oosPulse 1.3s ease-in-out infinite;box-shadow:0 2px 8px -2px rgba(142,59,54,.5);}
+  @keyframes oosPulse{0%,100%{opacity:1;}50%{opacity:.5;}}
+  .citem.oos{background:linear-gradient(90deg,var(--bad-bg),#FFF 72%);border-color:#E2C2BD;box-shadow:inset 3px 0 0 var(--bad);}
+  .citem.oos .nm{color:var(--bad);font-weight:650;}
+  @media (prefers-reduced-motion:reduce){.stat-oos{animation:none;}}
   .citem.is-done{background:var(--surface-2);}
   .citem.is-done .nm{color:var(--ink-2);font-weight:550;}
   .doneqty{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--ink-3);flex:0 0 auto;}
@@ -279,7 +284,7 @@ const SLOTS_DEFAULT=['客户1','客户2'];
 const SCAN_CDN='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';
 const SIZE_ORDER=['XS','S','M','L','L/40','XL','2XL','3XL','F'];
 
-const FIELD={ id:'明细ID', customer:'客户', guide:'导购', guidePerson:'导购员', status:'状态', picker:'捡货员', archive:'试衣完成',
+const FIELD={ id:'明细ID', customer:'客户', guide:'导购', guidePerson:'导购员', status:'状态', picker:'捡货员', archive:'试衣完成', oos:'缺货',
   styleCode:'识别款式编码', name:'商品名称', scanCode:'扫码商品编码', color:'颜色',
   finalCode:'最终商品编码', spec:'规格', barcode:'条形码', qty:'数量' };
 const PFIELD={ name:'商品名称', code:'商品编码', style:'款式编码', color:'颜色', spec:'规格' };
@@ -330,7 +335,7 @@ function normalize(items){
   return items.map(it=>{
     const f=it.fields||{},g=k=>f[FIELD[k]],r={_id:it.recordId,_raw:f};
     for(const k in FIELD)r[k]=cell(g(k));
-    r.qtyN=num(g('qty'))||1; r.todo=r.status!==ST_DONE; r.archived=(r.archive===true||r.archive==='true'); return r;
+    r.qtyN=num(g('qty'))||1; r.todo=r.status!==ST_DONE; r.archived=(r.archive===true||r.archive==='true'); r.outStock=(r.oos===true||r.oos==='true'); return r;
   });
 }
 async function refresh(){
@@ -444,14 +449,15 @@ function citem(r){
   const noFinal=!r.finalCode;
   const stat=r.todo?`<span class="stat stat-todo">待配货</span>`
                    :`<span class="stat stat-done">已配完${r.picker?' · '+r.picker:''}</span>`;
+  const oosTag=r.outStock?`<span class="stat stat-oos">缺货 · 没货了</span>`:'';
   const right=r.todo
     ? `<div class="stepper"><button onclick='stepItem("${r._id}",-1)'>−</button><span id="q_${r._id}">${r.qtyN}</span><button onclick='stepItem("${r._id}",1)'>+</button></div>
        <button class="rm" onclick='removeItem("${r._id}")' aria-label="移除"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>`
     : `<span class="doneqty">×${r.qtyN}</span>`;
-  return `<div class="citem ${r.todo?'':'is-done'} ${r._pending?'syncing':''}">
+  return `<div class="citem ${r.todo?'':'is-done'} ${r._pending?'syncing':''} ${r.outStock?'oos':''}">
     <div class="cbody" onclick='openSheet("${r._id}")'>
       <div class="nm">${r.name||'未匹配'}${r._pending?'<span class="syncdot" title="同步中"></span>':''}</div>
-      <div class="sub">${r.color?`<span class="attr"><span class="swatch" style="background:${colorHex(r.color)}"></span>${r.color}</span>`:''}${r.spec?`<span class="size-pill">${r.spec}</span>`:''}<span class="skucode ${noFinal?'none':''}">${r.finalCode||'断码'}</span>${stat}</div>
+      <div class="sub">${r.color?`<span class="attr"><span class="swatch" style="background:${colorHex(r.color)}"></span>${r.color}</span>`:''}${r.spec?`<span class="size-pill">${r.spec}</span>`:''}<span class="skucode ${noFinal?'none':''}">${r.finalCode||'断码'}</span>${oosTag}${stat}</div>
     </div>
     ${right}
   </div>`;
@@ -657,6 +663,21 @@ const DEMO_PRODUCTS=(()=>{
 })();
 
 refresh();
+/* 后台温和轮询：让配货员标的「缺货」、配货进度自动浮现；扫码/看详情/确认卡打开时不打扰 */
+async function silentRefresh(){
+  if(!LIVE)return;
+  if(document.getElementById('scanLayer').classList.contains('show'))return;
+  if(document.getElementById('sheet').classList.contains('show'))return;
+  if(document.getElementById('confirmCard').classList.contains('show'))return;
+  try{
+    const res=await fetch(API+'?action=list',{headers:{'X-Proxy-Key':window.__PROXY_KEY||''}});
+    const j=await res.json(); if(!j.ok)return;
+    const pending=RAW.filter(r=>r._pending&&String(r._id).startsWith('tmp'));
+    RAW=normalize(j.items); if(pending.length)RAW.unshift(...pending);
+    render();
+  }catch(e){}
+}
+setInterval(silentRefresh, 25000);
 </script>
 </body>
 </html>
