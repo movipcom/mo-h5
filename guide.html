@@ -90,6 +90,12 @@
   .stat-todo{color:var(--todo);background:var(--todo-bg);}
   .stat-done{color:var(--done);background:var(--done-bg);}
   .stat-hand{color:#4A5A6B;background:#E8EDF1;}
+  .stat-wait{color:var(--ink-3);background:var(--surface-2);border:1px solid var(--line);}
+  .stat-over{color:#fff;background:var(--bad);animation:overPulse 1.3s ease-in-out infinite;}
+  @keyframes overPulse{0%,100%{opacity:1;}50%{opacity:.5;}}
+  .citem.overdue{background:linear-gradient(90deg,var(--bad-bg),#FFF 72%);border-color:#E2C2BD;box-shadow:inset 3px 0 0 var(--bad);}
+  .citem.overdue .nm{color:var(--bad);font-weight:650;}
+  @media (prefers-reduced-motion:reduce){.stat-over{animation:none;}}
   .srcpick{position:absolute;inset:0;z-index:60;background:rgba(15,13,10,.46);display:none;align-items:flex-end;justify-content:center;}
   .srcpick.show{display:flex;}
   .srcpick-card{width:100%;max-width:440px;background:var(--surface);border-radius:8px 8px 0 0;padding:8px 18px calc(20px + env(safe-area-inset-bottom));animation:appIn .26s cubic-bezier(.2,.7,.3,1) both;}
@@ -389,6 +395,8 @@ const FIELD={ id:'明细ID', customer:'客户', guide:'导购', guidePerson:'导
   finalCode:'最终商品编码', spec:'规格', barcode:'条形码', qty:'数量' };
 const PFIELD={ name:'商品名称', code:'商品编码', style:'款式编码', color:'颜色', spec:'规格' };
 const ST_TODO='试衣单', ST_DONE='配货完成';
+const OVERDUE_MIN=5;   // 配货超时阈值（分钟）
+function elapsedMin(r){ return r.ts? Math.floor((Date.now()-r.ts)/60000) : -1; }
 
 let RAW=[], LIVE=false, slot='客户1';
 let OP=''; try{OP=localStorage.getItem('mo_operator')||'';}catch(e){}
@@ -435,7 +443,7 @@ function normalize(items){
   return items.map(it=>{
     const f=it.fields||{},g=k=>f[FIELD[k]],r={_id:it.recordId,_raw:f};
     for(const k in FIELD)r[k]=cell(g(k));
-    r.qtyN=num(g('qty'))||1; r.todo=r.status!==ST_DONE; r.archived=(r.archive===true||r.archive==='true'); r.outStock=(r.oos===true||r.oos==='true'); r.bought=(r.bought===true||r.bought==='true'); r.returned=(r.returned===true||r.returned==='true'); r.source=cell(g('source'))||'小仓'; r.inHand=(r.source==='陈列仓'); return r;
+    r.qtyN=num(g('qty'))||1; r.todo=r.status!==ST_DONE; r.archived=(r.archive===true||r.archive==='true'); r.outStock=(r.oos===true||r.oos==='true'); r.bought=(r.bought===true||r.bought==='true'); r.returned=(r.returned===true||r.returned==='true'); r.source=cell(g('source'))||'小仓'; r.inHand=(r.source==='陈列仓'); r.ts=it.createdTime?(+it.createdTime<1e12?+it.createdTime*1000:+it.createdTime):0; return r;
   });
 }
 async function refresh(){
@@ -598,14 +606,20 @@ function citem(r){
                    :(r.todo?`<span class="stat stat-todo">待配货</span>`
                    :`<span class="stat stat-done">已配完${r.picker?' · '+r.picker:''}</span>`);
   const oosTag=r.outStock?`<span class="stat stat-oos">缺货 · 没货了</span>`:'';
+  // 待配货(小仓)才计时；陈列在手不计
+  let timeTag='', overdue=false;
+  if(r.todo && !r.inHand && r.ts){
+    const m=elapsedMin(r); overdue=m>=OVERDUE_MIN;
+    timeTag = overdue ? `<span class="stat stat-over">⏱ 超时 ${m}分</span>` : `<span class="stat stat-wait">⏱ ${m}分</span>`;
+  }
   const right=r.todo
     ? `<div class="stepper"><button onclick='stepItem("${r._id}",-1)'>−</button><span id="q_${r._id}">${r.qtyN}</span><button onclick='stepItem("${r._id}",1)'>+</button></div>
        <button class="rm" onclick='removeItem("${r._id}")' aria-label="移除"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>`
     : `<span class="doneqty">×${r.qtyN}</span>`;
-  return `<div class="citem ${r.todo?'':'is-done'} ${r._pending?'syncing':''} ${r.outStock?'oos':''}">
+  return `<div class="citem ${r.todo?'':'is-done'} ${r._pending?'syncing':''} ${r.outStock?'oos':''} ${overdue?'overdue':''}">
     <div class="cbody" onclick='openSheet("${r._id}")'>
       <div class="nm">${r.name||'未匹配'}${r._pending?'<span class="syncdot" title="同步中"></span>':''}</div>
-      <div class="sub">${r.color?`<span class="attr"><span class="swatch" style="background:${colorHex(r.color)}"></span>${r.color}</span>`:''}${r.spec?`<span class="size-pill">${r.spec}</span>`:''}<span class="skucode ${noFinal?'none':''}">${r.finalCode||'断码'}</span>${oosTag}${stat}</div>
+      <div class="sub">${r.color?`<span class="attr"><span class="swatch" style="background:${colorHex(r.color)}"></span>${r.color}</span>`:''}${r.spec?`<span class="size-pill">${r.spec}</span>`:''}<span class="skucode ${noFinal?'none':''}">${r.finalCode||'断码'}</span>${oosTag}${timeTag}${stat}</div>
     </div>
     ${right}
   </div>`;
@@ -871,7 +885,9 @@ const DEMO=[
   ['客户1','Dokky【南法波点裙D0685】小复古百褶半身裙','深藏青','F','D0685F1','D0685','D0685M1', ST_TODO,'小满',''],
   ['客户1','Dokky【缪系菱格D0683】复古菱格Polo领针织衫','燕麦色','L','D0683L1','D0683','D0683M1', ST_DONE,'小满','阿强'],
   ['客户2','LIZE【L1749】亚麻直筒裤','咖色','M','L1749M6','L1749','L1749S6', ST_DONE,'小满','阿强'],
-].map((a,i)=>({recordId:'demo'+i,fields:{
+].map((a,i)=>({recordId:'demo'+i,
+  createdTime: Date.now()-[7,12,40,40][i%4]*60000,   // 演示：待配货的有的超过5分钟
+  fields:{
   [FIELD.id]:i+1,[FIELD.customer]:a[0],[FIELD.name]:a[1],[FIELD.color]:a[2],[FIELD.spec]:a[3],
   [FIELD.finalCode]:a[4],[FIELD.styleCode]:a[5],[FIELD.scanCode]:a[6],[FIELD.barcode]:a[6],[FIELD.qty]:1,
   [FIELD.status]:a[7],[FIELD.guide]:[{name:a[8]}],[FIELD.picker]:a[9]?[{name:a[9]}]:[],
@@ -905,6 +921,15 @@ async function silentRefresh(){
   }catch(e){}
 }
 setInterval(silentRefresh, 25000);
+/* 本地每 30 秒重绘，让等待/超时分钟实时跳动（扫码/详情/结算/选来源时不打扰） */
+setInterval(()=>{
+  if(document.hidden||!RAW.length)return;
+  if(document.getElementById('scanLayer').classList.contains('show'))return;
+  if(document.getElementById('sheet').classList.contains('show'))return;
+  if(document.getElementById('confirmCard').classList.contains('show'))return;
+  if(document.getElementById('coLayer').classList.contains('show'))return;
+  render();
+}, 30000);
 </script>
 </body>
 </html>
