@@ -284,6 +284,8 @@
   .cash-gh .av{width:24px;height:24px;border-radius:3px;display:grid;place-items:center;color:#fff;font-size:11px;font-weight:700;flex:0 0 auto;}
   .cash-gh .nm{flex:1;font-size:15px;font-weight:600;letter-spacing:-.01em;}
   .cash-gh .q{font-family:var(--mono);font-size:12px;color:var(--ink-3);}
+  .cash-done-top{flex:0 0 auto;height:30px;padding:0 12px;border:none;border-radius:999px;background:var(--green);color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 4px 12px -6px rgba(63,107,83,.7);}
+  .cash-done-top:active{transform:scale(.96);}
   .cash-card{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:14px;margin-bottom:10px;box-shadow:0 1px 2px rgba(20,18,12,.04);animation:fadeUp .45s both;}
   .cash-card .nm{font-size:13.5px;font-weight:600;letter-spacing:-.01em;}
   .cash-card .at{margin-top:5px;display:flex;gap:8px;align-items:center;font-size:11px;color:var(--ink-2);}
@@ -303,6 +305,7 @@
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
   @media (prefers-reduced-motion:reduce){.sheet,.scrim,.skel::after,.confirm{transition:none;animation:none;}}
 </style>
+<script src="./config.js"></script>
 </head>
 <body>
 <div class="grain"></div>
@@ -426,10 +429,10 @@
 </div>
 
 <script>
-const API='/api/feishu';
+const API=(window.MO_API||'/api/feishu');
 const PRODUCT_TABLE='tblN1KwbizjcEmsO';
 const SLOTS_DEFAULT=['客户1','客户2'];
-const SCAN_CDN='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';
+const SCAN_CDN='./lib/html5-qrcode.min.js';
 const SIZE_ORDER=['XS','S','M','L','L/40','XL','2XL','3XL','F'];
 
 const FIELD={ id:'明细ID', customer:'客户', guide:'导购', guidePerson:'导购员', status:'状态', picker:'捡货员', archive:'试衣完成', oos:'缺货', bought:'已购买', returned:'已归位', source:'取货来源', created:'创建时间', repoStart:'归位开始时间', cashed:'已收银',
@@ -617,7 +620,7 @@ function openReturnScan(id){ returnScanMode=true; scanReturnId=id; openScan(); c
 function pickSlot(s){slot=s;render();}
 
 /* ===== 待收银（已购买 → 有赞扫码买单 → 整单归档） ===== */
-const BARCODE_CDN='https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js';
+const BARCODE_CDN='./lib/JsBarcode.all.min.js';
 let bcLoaded=false;
 function loadBC(){return new Promise(res=>{ if(window.JsBarcode){bcLoaded=true;return res(true);} const s=document.createElement('script');s.src=BARCODE_CDN;s.onload=()=>{bcLoaded=true;res(true);};s.onerror=()=>res(false);document.head.appendChild(s);});}
 function toCash(){ return RAW.filter(r=>r.archived&&r.bought&&!r.cashed); }
@@ -637,7 +640,7 @@ function renderCashier(){
   let h='';
   Object.values(groups).forEach(g=>{
     const q=g.items.reduce((a,r)=>a+r.qtyN,0);
-    h+=`<div class="cash-grp"><div class="cash-gh">${av(g.customer)}<span class="nm">${g.guide?g.guide+'的':''}${g.customer||'客户'}</span><span class="q">${q} 件</span></div>`;
+    h+=`<div class="cash-grp"><div class="cash-gh">${av(g.customer)}<span class="nm">${g.guide?g.guide+'的':''}${g.customer||'客户'}</span><span class="q">${q} 件</span><button class="cash-done-top" onclick='cashGroup("${jsq(g.guide)}","${jsq(g.customer)}")'><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4L19 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> 已收银</button></div>`;
     g.items.forEach(r=>{
       const code=r.finalCode||r.barcode||r.scanCode||'';
       h+=`<div class="cash-card">
@@ -725,8 +728,22 @@ function citem(r){
 /* 扫码 */
 let h5q=null, scanning=false, lastCode='', lastT=0, addedCount=0, actx=null, paused=false;
 let scanMode='小仓';   // 本轮取货来源
-function loadScanLib(){return new Promise(res=>{ if(window.Html5Qrcode)return res(true); const s=document.createElement('script');s.src=SCAN_CDN;s.onload=()=>res(true);s.onerror=()=>res(false);document.head.appendChild(s);});}
-function beep(){ try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); const o=actx.createOscillator(),g=actx.createGain(); o.type='sine';o.frequency.value=920;o.connect(g);g.connect(actx.destination); const t=actx.currentTime; g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.22,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+.12); o.start(t);o.stop(t+.13);}catch(e){} if(navigator.vibrate)navigator.vibrate(28); }
+function loadScanLib(){return new Promise(res=>{ if(window.Html5Qrcode)return res(true); var srcs=["./lib/html5-qrcode.min.js","https://cdn.bootcdn.net/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js","https://cdn.staticfile.org/html5-qrcode/2.3.8/html5-qrcode.min.js","https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"]; var i=0; function tryNext(){ if(i>=srcs.length)return res(false); var s=document.createElement("script"); s.src=srcs[i++]; s.onload=function(){ window.Html5Qrcode?res(true):tryNext(); }; s.onerror=tryNext; document.head.appendChild(s); } tryNext(); });}
+function _tone(freq,dur,vol,type){ try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==='suspended')actx.resume(); const o=actx.createOscillator(),g=actx.createGain(); o.type=type||'square'; o.frequency.value=freq; o.connect(g); g.connect(actx.destination); const t=actx.currentTime; g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(vol||.5,t+.008); g.gain.exponentialRampToValueAtTime(.0001,t+dur); o.start(t); o.stop(t+dur+.02); }catch(e){} }
+/* 扫码成功：清脆高音"嘀"，更像扫码枪 */
+function beep(){ _tone(2300,.09,.6,'square'); if(navigator.vibrate)navigator.vibrate(35); flashTick(true); }
+/* 重复/已存在：低沉双"嘟嘟" */
+function beepDup(){ _tone(380,.10,.5,'square'); setTimeout(()=>_tone(300,.13,.5,'square'),120); if(navigator.vibrate)navigator.vibrate([40,60,40]); flashTick(false); }
+/* 全屏绿色对勾闪动（iPhone 无震动时的视觉反馈）；ok=false 时显示橙色叹号 */
+function flashTick(ok){
+  var d=document.getElementById('scanTick');
+  if(!d){ d=document.createElement('div'); d.id='scanTick'; d.style.cssText='position:fixed;left:50%;top:42%;transform:translate(-50%,-50%) scale(.4);z-index:99999;width:120px;height:120px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:64px;font-weight:900;opacity:0;pointer-events:none;transition:opacity .12s,transform .18s;'; document.body.appendChild(d); }
+  if(ok){ d.style.background='rgba(63,107,83,.95)'; d.style.color='#fff'; d.textContent='✓'; }
+  else  { d.style.background='rgba(142,59,54,.95)'; d.style.color='#fff'; d.textContent='!'; }
+  d.style.opacity='0'; d.style.transform='translate(-50%,-50%) scale(.4)'; void d.offsetWidth;
+  d.style.opacity='1'; d.style.transform='translate(-50%,-50%) scale(1)';
+  clearTimeout(d._t); d._t=setTimeout(function(){ d.style.opacity='0'; d.style.transform='translate(-50%,-50%) scale(.4)'; },430);
+}
 function updateScanTop(){
   const m=scanMode==='陈列仓'?'陈列仓 · 扫吊牌秒加':'小仓 · 扫款选色码';
   document.getElementById('scanTitle').innerHTML=`为 ${av(slot)}${slot} <span style="opacity:.7;font-size:12px">· ${m}</span>`;
@@ -777,7 +794,7 @@ function onDecode(text){
 let tray=[];
 function trayPush(rawcode){
   const code=String(rawcode||'').trim(); if(!code)return;
-  if(tray.find(t=>t.code===code)){ trayFlash(); toast('已在暂存篮里 · '+code); return; }   // 重复不加
+  if(tray.find(t=>t.code===code)){ beepDup(); trayFlash(); toast('已在暂存篮里 · '+code); return; }   // 重复不加（重复提示音）
   const info=IDX.byCode[code]||null;
   let style=(info&&info.style)||''; if(!style){ const r=recognize(code); if(r)style=r.style; }
   tray.unshift({code, name:(info&&info.name)||'', color:(info&&info.color)||'', size:(info&&info.size)||'', style, qty:1});

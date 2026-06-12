@@ -107,6 +107,7 @@
   .src-card .l{font-size:11px;color:var(--ink-3);margin-top:4px;}
   .kpi .num.warn{color:var(--bad);}
 </style>
+<script src="./config.js"></script>
 </head>
 <body>
 <div class="grain"></div>
@@ -127,7 +128,7 @@
 <div class="seg-note" id="segNote"></div>
 <div id="app"><div class="skel"><span class="spin"></span>正在汇总转化…</div></div>
 <script>
-const API='/api/feishu';
+const API=(window.MO_API||'/api/feishu');
 let LIVE=true;
 const ST_DONE='配货完成';
 const OVERDUE_MIN=5;

@@ -113,6 +113,7 @@
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
   @media (prefers-reduced-motion:reduce){.skel::after{animation:none;}}
 </style>
+<script src="./config.js"></script>
 </head>
 <body>
 <div class="grain"></div>
@@ -136,8 +137,8 @@
 </div>
 
 <script>
-const API='/api/feishu';
-const BARCODE_CDN='https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js';
+const API=(window.MO_API||'/api/feishu');
+const BARCODE_CDN='./lib/JsBarcode.all.min.js';
 const FIELD={ id:'明细ID', customer:'客户', guide:'导购', guidePerson:'导购员', status:'状态', picker:'捡货员', pickPerson:'配货员', archive:'试衣完成', oos:'缺货', source:'取货来源', created:'创建时间',
   styleCode:'识别款式编码', name:'商品名称', scanCode:'扫码商品编码', color:'颜色',
   finalCode:'最终商品编码', spec:'规格', barcode:'条形码', qty:'数量', barcodeImg:'条形码图形' };

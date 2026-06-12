@@ -200,6 +200,7 @@
   main{padding-bottom:96px;}
   #app{animation:appIn .5s cubic-bezier(.2,.7,.3,1) both;}
 </style>
+<script src="./config.js"></script>
 </head>
 <body>
 <div class="grain"></div>
@@ -233,9 +234,9 @@
 </div>
 
 <script>
-const API='/api/feishu';
-const BARCODE_CDN='https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js';
-const SCAN_CDN='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';
+const API=(window.MO_API||'/api/feishu');
+const BARCODE_CDN='./lib/JsBarcode.all.min.js';
+const SCAN_CDN='./lib/html5-qrcode.min.js';
 const ST_DONE='配货完成';
 const OVERDUE={ '陈列仓':15, '小仓':60 };   // 归位超时阈值(分钟)
 const FIELD={ id:'明细ID', customer:'客户', guidePerson:'导购员', status:'状态', archive:'试衣完成', bought:'已购买', returned:'已归位', source:'取货来源', qc:'质检', flaw:'瑕疵去向', repoStart:'归位开始时间', created:'创建时间',
@@ -366,7 +367,7 @@ async function flawReturn(id){ const r=RAW.find(x=>x._id===id); if(!r)return; r.
 
 /* 扫码:在当前 Tab 待归位里找第一条同码 → 归位 */
 let h5q=null,scanning=false,lastCode='',lastT=0,actx;
-function loadScanLib(){return new Promise(res=>{ if(window.Html5Qrcode)return res(true); const s=document.createElement('script');s.src=SCAN_CDN;s.onload=()=>res(true);s.onerror=()=>res(false);document.head.appendChild(s);});}
+function loadScanLib(){return new Promise(res=>{ if(window.Html5Qrcode)return res(true); var srcs=["./lib/html5-qrcode.min.js","https://cdn.bootcdn.net/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js","https://cdn.staticfile.org/html5-qrcode/2.3.8/html5-qrcode.min.js","https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"]; var i=0; function tryNext(){ if(i>=srcs.length)return res(false); var s=document.createElement("script"); s.src=srcs[i++]; s.onload=function(){ window.Html5Qrcode?res(true):tryNext(); }; s.onerror=tryNext; document.head.appendChild(s); } tryNext(); });}
 async function openScan(){ document.getElementById('scanLayer').classList.add('show'); document.getElementById('scanTitle').textContent='扫码归位 · '+TAB+' · 扫一下消一件'; const ok=await loadScanLib(); if(!ok||!window.Html5Qrcode){toast('扫码组件未加载');return;} try{ h5q=new Html5Qrcode('reader',{verbose:false}); await h5q.start({facingMode:'environment'},{fps:10,qrbox:{width:260,height:150}},onDecode,()=>{}); scanning=true; }catch(e){ toast('无法打开相机：'+(e.message||e)); } }
 function onDecode(text){ const now=Date.now(); if(text===lastCode&&now-lastT<1200)return; lastCode=text;lastT=now; const s=String(text).trim(); beep(); const items=groupItems(s); if(items.length){ repoRecords([items[0]]); toast('✓ 已归位 1 件 · '+s); } else { toast('当前『'+TAB+'』无此待归位：'+s); } }
 function beep(){ try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); const o=actx.createOscillator(),g=actx.createGain(); o.type='sine';o.frequency.value=920;o.connect(g);g.connect(actx.destination); const t=actx.currentTime; g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.22,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+.12); o.start(t);o.stop(t+.13);}catch(e){} if(navigator.vibrate)navigator.vibrate(24); }

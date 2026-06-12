@@ -113,6 +113,7 @@
   .src-card .l{font-size:11px;color:var(--ink-3);margin-top:4px;}
   .src-card.hand{background:#EEF2F5;}
 </style>
+<script src="./config.js"></script>
 </head>
 <body>
 <div class="grain"></div>
@@ -134,7 +135,7 @@
 <div id="app"><div class="skel"><span class="spin"></span>正在汇总数据…</div></div>
 
 <script>
-const API='/api/feishu';
+const API=(window.MO_API||'/api/feishu');
 let LIVE=true;
 const ST_DONE='配货完成';
 const OVERDUE_MIN=5;
