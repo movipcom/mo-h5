@@ -151,6 +151,8 @@
   .state h4{margin:0 0 7px;color:var(--ink-2);font-size:14px;font-weight:600;letter-spacing:-.01em;}
   .state p{margin:0;font-size:12.5px;line-height:1.7;}
   .skel{background:var(--surface);border:1px solid var(--line);border-radius:3px;height:70px;margin-bottom:11px;position:relative;overflow:hidden;}
+  .skel::after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,rgba(0,0,0,.045),transparent);animation:skelShimmer 1.3s infinite;}
+  @keyframes skelShimmer{100%{transform:translateX(100%);}}
   .skel::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(0,0,0,.03),transparent);animation:sh 1.3s infinite;}
   @keyframes sh{100%{transform:translateX(100%)}}
   .errbar{background:var(--todo-bg);color:#7A6633;font-size:12px;padding:11px 14px;border-radius:3px;margin-bottom:14px;line-height:1.6;border:1px solid #E6DAB9;}
@@ -266,6 +268,31 @@
   .co-ret .tip.ok{color:var(--done);}
   .co-ret button{height:34px;padding:0 13px;border-radius:2px;border:1px solid var(--line);background:var(--surface);font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;color:var(--ink);}
   .co-ret button.scan{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .cash-bar{display:none;align-items:center;gap:10px;margin:0 16px 4px;padding:12px 14px;border-radius:4px;background:linear-gradient(100deg,#1B2A22,#2C4A39);color:#fff;cursor:pointer;box-shadow:0 8px 24px -14px rgba(31,74,57,.8);animation:fadeUp .4s both;}
+  .cash-bar.show{display:flex;}
+  .cash-bar .cb-ic{display:grid;place-items:center;width:30px;height:30px;border-radius:3px;background:rgba(255,255,255,.14);flex:0 0 auto;}
+  .cash-bar .cb-t{flex:1;font-size:13px;font-weight:600;letter-spacing:-.01em;}
+  .cash-bar .cb-t b{font-family:var(--mono);}
+  .cash-bar .cb-go{font-size:12px;font-weight:700;opacity:.9;white-space:nowrap;}
+  .cash-bar:active{transform:scale(.99);}
+  .cashlayer{position:absolute;inset:0;z-index:46;background:var(--bg);display:none;flex-direction:column;}
+  .cashlayer.show{display:flex;animation:appIn .3s cubic-bezier(.2,.7,.3,1) both;}
+  .cash-tip{flex:0 0 auto;padding:11px 18px;background:var(--surface);border-bottom:1px solid var(--line);font-size:11.5px;color:var(--ink-2);line-height:1.5;}
+  .cash-list{flex:1;overflow-y:auto;padding:14px 16px calc(20px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch;}
+  .cash-grp{margin-bottom:20px;}
+  .cash-gh{display:flex;align-items:center;gap:10px;margin-bottom:11px;}
+  .cash-gh .av{width:24px;height:24px;border-radius:3px;display:grid;place-items:center;color:#fff;font-size:11px;font-weight:700;flex:0 0 auto;}
+  .cash-gh .nm{flex:1;font-size:15px;font-weight:600;letter-spacing:-.01em;}
+  .cash-gh .q{font-family:var(--mono);font-size:12px;color:var(--ink-3);}
+  .cash-card{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:14px;margin-bottom:10px;box-shadow:0 1px 2px rgba(20,18,12,.04);animation:fadeUp .45s both;}
+  .cash-card .nm{font-size:13.5px;font-weight:600;letter-spacing:-.01em;}
+  .cash-card .at{margin-top:5px;display:flex;gap:8px;align-items:center;font-size:11px;color:var(--ink-2);}
+  .cash-card .at .sw{width:9px;height:9px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08);}
+  .cash-bc{margin-top:12px;background:var(--surface-2);border-radius:3px;padding:14px 10px 9px;text-align:center;}
+  .cash-bc svg{width:100%;max-width:300px;height:62px;}
+  .cash-bc .code{font-family:var(--mono);font-size:12px;color:var(--ink-2);letter-spacing:.1em;margin-top:5px;}
+  .cash-done{width:100%;height:48px;margin-top:13px;border:none;border-radius:3px;background:var(--green);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;box-shadow:0 8px 22px -12px rgba(63,107,83,.7);}
+  .cash-done:active{transform:scale(.99);}
   .co-foot{flex:0 0 auto;padding:14px 18px calc(14px + env(safe-area-inset-bottom));background:var(--surface);border-top:1px solid var(--line);}
   .co-done{width:100%;height:50px;border:none;border-radius:3px;background:var(--ink);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;letter-spacing:.01em;}
   .co-done:disabled{opacity:.35;}
@@ -291,6 +318,12 @@
   <div class="slots">
     <div class="slots-l"><span class="eyebrow">接待中的客户</span><span class="lib" id="libInfo">LOADING…</span></div>
     <div class="slot-row" id="slotRow"></div>
+  </div>
+
+  <div class="cash-bar" id="cashBar" onclick="openCashier()">
+    <span class="cb-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 7h18v10H3zM3 11h18" stroke="currentColor" stroke-width="1.6"/></svg></span>
+    <span class="cb-t">待收银 <b id="cashN">0</b> 件 · 已购买待买单</span>
+    <span class="cb-go">去收银 &rarr;</span>
   </div>
 
   <main id="cart"></main>
@@ -381,6 +414,15 @@
     <div class="co-list" id="coList"></div>
     <div class="co-foot"><button class="co-done" id="coDone" onclick="commitCheckout()" disabled>确认结束</button></div>
   </div>
+  <!-- 待收银层 -->
+  <div class="cashlayer" id="cashLayer">
+    <div class="co-head">
+      <button class="co-back" onclick="closeCashier()">&larr; 返回</button>
+      <div class="co-title">待收银 · 有赞扫码买单</div>
+    </div>
+    <div class="cash-tip">用有赞扫下方条形码完成收款，再点「该客户已收银」整单归档</div>
+    <div class="cash-list" id="cashList"></div>
+  </div>
 </div>
 
 <script>
@@ -390,7 +432,7 @@ const SLOTS_DEFAULT=['客户1','客户2'];
 const SCAN_CDN='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';
 const SIZE_ORDER=['XS','S','M','L','L/40','XL','2XL','3XL','F'];
 
-const FIELD={ id:'明细ID', customer:'客户', guide:'导购', guidePerson:'导购员', status:'状态', picker:'捡货员', archive:'试衣完成', oos:'缺货', bought:'已购买', returned:'已归位', source:'取货来源', created:'创建时间',
+const FIELD={ id:'明细ID', customer:'客户', guide:'导购', guidePerson:'导购员', status:'状态', picker:'捡货员', archive:'试衣完成', oos:'缺货', bought:'已购买', returned:'已归位', source:'取货来源', created:'创建时间', repoStart:'归位开始时间', cashed:'已收银',
   styleCode:'识别款式编码', name:'商品名称', scanCode:'扫码商品编码', color:'颜色',
   finalCode:'最终商品编码', spec:'规格', barcode:'条形码', qty:'数量' };
 const PFIELD={ name:'商品名称', code:'商品编码', style:'款式编码', color:'颜色', spec:'规格' };
@@ -444,7 +486,7 @@ function normalize(items){
   return items.map(it=>{
     const f=it.fields||{},g=k=>f[FIELD[k]],r={_id:it.recordId,_raw:f};
     for(const k in FIELD)r[k]=cell(g(k));
-    r.qtyN=num(g('qty'))||1; r.todo=r.status!==ST_DONE; r.archived=(r.archive===true||r.archive==='true'); r.outStock=(r.oos===true||r.oos==='true'); r.bought=(r.bought===true||r.bought==='true'); r.returned=(r.returned===true||r.returned==='true'); r.source=cell(g('source'))||'小仓'; r.inHand=(r.source==='陈列仓'); r.ts=tsOf(g,it); return r;
+    r.qtyN=num(g('qty'))||1; r.todo=r.status!==ST_DONE; r.archived=(r.archive===true||r.archive==='true'); r.outStock=(r.oos===true||r.oos==='true'); r.bought=(r.bought===true||r.bought==='true'); r.returned=(r.returned===true||r.returned==='true'); r.source=cell(g('source'))||'小仓'; r.inHand=(r.source==='陈列仓'); r.ts=tsOf(g,it); r.cashed=(r.cashed===true||r.cashed==='true'); return r;
   });
 }
 async function refresh(){
@@ -555,8 +597,12 @@ async function commitCheckout(){
   const items=allOf(slot);
   if(!items.every(coResolved)){toast('还有未标记的件');return;}
   const done=slot;
-  const ups=items.map(r=>{ const s=coState[r._id]; return {r, fields:{[FIELD.bought]:s.bought===true,[FIELD.archive]:true}}; });
-  ups.forEach(u=>{ u.r.bought=u.fields[FIELD.bought]; u.r.archived=true; });   // 乐观；未购买/陈列样衣的归位由归位台处理
+  const now=Date.now();
+  const ups=items.map(r=>{ const s=coState[r._id]; const f={[FIELD.bought]:s.bought===true,[FIELD.archive]:true};
+    const needRepo = r.inHand || s.bought===false;   // 陈列样衣 或 未购买 → 要归位
+    if(needRepo) f[FIELD.repoStart]=now;              // 归位计时起点
+    return {r, fields:f}; });
+  ups.forEach(u=>{ u.r.bought=u.fields[FIELD.bought]; u.r.archived=true; if(u.fields[FIELD.repoStart])u.r.repoStart=u.fields[FIELD.repoStart]; });   // 乐观；归位由归位台处理
   closeCheckout();
   extraSlots=extraSlots.filter(x=>x!==done);
   slot=slots().find(s=>activeOf(s).length===0)||'客户1';
@@ -569,6 +615,55 @@ async function commitCheckout(){
 }
 function openReturnScan(id){ returnScanMode=true; scanReturnId=id; openScan(); const t=document.getElementById('scanTitle'); if(t)t.innerHTML='扫码归位 · 扫一下即可'; const c=document.getElementById('scanCnt'); if(c)c.textContent=''; }
 function pickSlot(s){slot=s;render();}
+
+/* ===== 待收银（已购买 → 有赞扫码买单 → 整单归档） ===== */
+const BARCODE_CDN='https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js';
+let bcLoaded=false;
+function loadBC(){return new Promise(res=>{ if(window.JsBarcode){bcLoaded=true;return res(true);} const s=document.createElement('script');s.src=BARCODE_CDN;s.onload=()=>{bcLoaded=true;res(true);};s.onerror=()=>res(false);document.head.appendChild(s);});}
+function toCash(){ return RAW.filter(r=>r.archived&&r.bought&&!r.cashed); }
+function updateCashBar(){
+  const n=toCash().reduce((a,r)=>a+r.qtyN,0);
+  const bar=document.getElementById('cashBar'); const el=document.getElementById('cashN'); if(el)el.textContent=n;
+  if(bar)bar.classList.toggle('show', n>0);
+}
+function openCashier(){ renderCashier(); document.getElementById('cashLayer').classList.add('show'); }
+function closeCashier(){ document.getElementById('cashLayer').classList.remove('show'); }
+function renderCashier(){
+  const rows=toCash();
+  const groups={};
+  rows.forEach(r=>{ const k=(r.guidePerson||'')+'\u0001'+(r.customer||''); (groups[k]=groups[k]||{guide:r.guidePerson||'',customer:r.customer||'',items:[]}).items.push(r); });
+  const list=document.getElementById('cashList');
+  if(!rows.length){ list.innerHTML=`<div class="cf-empty" style="padding:50px 20px;text-align:center;color:var(--ink-3)"><div style="font-size:15px;color:var(--ink-2);margin-bottom:5px">没有待收银</div>结算时标「已购买」的件会来这里</div>`; return; }
+  let h='';
+  Object.values(groups).forEach(g=>{
+    const q=g.items.reduce((a,r)=>a+r.qtyN,0);
+    h+=`<div class="cash-grp"><div class="cash-gh">${av(g.customer)}<span class="nm">${g.guide?g.guide+'的':''}${g.customer||'客户'}</span><span class="q">${q} 件</span></div>`;
+    g.items.forEach(r=>{
+      const code=r.finalCode||r.barcode||r.scanCode||'';
+      h+=`<div class="cash-card">
+        <div class="nm">${r.name||'未匹配'}</div>
+        <div class="at">${r.color?`<span class="sw" style="background:${colorHex(r.color)}"></span>${r.color}`:''} ${r.spec||''}${r.qtyN>1?' · ×'+r.qtyN:''}</div>
+        <div class="cash-bc">${code?`<svg class="cbc" data-code="${code}"></svg><div class="code">${code}</div>`:'<div class="code">无条码</div>'}</div>
+      </div>`;
+    });
+    h+=`<button class="cash-done" onclick='cashGroup("${jsq(g.guide)}","${jsq(g.customer)}")'><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4L19 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg> 该客户已收银 · ${q} 件归档</button></div>`;
+  });
+  list.innerHTML=h;
+  renderCashBarcodes();
+}
+async function renderCashBarcodes(){ const els=document.querySelectorAll('svg.cbc[data-code]'); if(!els.length)return; const ok=await loadBC(); if(!ok||!window.JsBarcode)return; els.forEach(el=>{ try{ JsBarcode(el,el.dataset.code,{format:'CODE128',displayValue:false,height:62,margin:0,width:2}); }catch(e){} }); }
+async function cashGroup(guide,customer){
+  const items=toCash().filter(r=>(r.guidePerson||'')===guide&&(r.customer||'')===customer);
+  if(!items.length)return;
+  items.forEach(r=>r.cashed=true);   // 乐观
+  renderCashier(); updateCashBar(); render();
+  toast('已收银 '+items.reduce((a,r)=>a+r.qtyN,0)+' 件 · 已归档');
+  if(toCash().length===0) closeCashier();
+  if(!LIVE)return;
+  const real=items.filter(r=>!String(r._id).startsWith('tmp'));
+  Promise.all(real.map(r=>post({action:'update',recordId:r._id,fields:{[FIELD.cashed]:true}})))
+    .catch(e=>{ items.forEach(r=>r.cashed=false); toast('收银同步失败，已还原'); renderCashier(); updateCashBar(); render(); });
+}
 function newGuest(){
   const free=slots().find(s=>activeOf(s).length===0);
   if(free){slot=free;toast('开始接待 '+free);render();return;}
@@ -577,6 +672,7 @@ function newGuest(){
 }
 
 function render(){
+  updateCashBar();
   const sr=document.getElementById('slotRow');
   sr.innerHTML=slots().map(s=>{
     const a=activeOf(s),q=a.reduce((x,r)=>x+r.qtyN,0),free=a.length===0;

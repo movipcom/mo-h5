@@ -138,7 +138,7 @@ const API='/api/feishu';
 let LIVE=true;
 const ST_DONE='配货完成';
 const OVERDUE_MIN=5;
-const FIELD={ customer:'客户', guidePerson:'导购员', pickPerson:'配货员', status:'状态', archive:'试衣完成', oos:'缺货', bought:'已购买', returned:'已归位', source:'取货来源', created:'创建时间', styleCode:'识别款式编码', name:'商品名称', color:'颜色', finalCode:'最终商品编码', spec:'规格', qty:'数量' };
+const FIELD={ customer:'客户', guidePerson:'导购员', pickPerson:'配货员', status:'状态', archive:'试衣完成', oos:'缺货', bought:'已购买', returned:'已归位', source:'取货来源', created:'创建时间', returned:'已归位', qc:'质检', flaw:'瑕疵去向', repoStart:'归位开始时间', cashed:'已收银', styleCode:'识别款式编码', name:'商品名称', color:'颜色', finalCode:'最终商品编码', spec:'规格', qty:'数量' };
 let RANGE='today', RAW=[];
 
 function cell(v){ if(v==null)return''; if(Array.isArray(v)){ if(v.length&&typeof v[0]==='object'){ if('text'in v[0])return v.map(s=>s.text).join(''); if('name'in v[0])return v.map(s=>s.name).join('、'); return v.map(x=>x.text||x.name||'').join('、'); } return v.join('、'); } if(typeof v==='object')return v.text||v.name||''; return v; }
@@ -157,9 +157,11 @@ async function load(){
       for(const k in FIELD)o[k]=cell(g(k));
       o.qtyN=num(g('qty'))||1; o.done=o.status===ST_DONE;
       o.bought=bool(g('bought')); o.returned=bool(g('returned')); o.oos=bool(g('oos')); o.archived=bool(g('archive'));
-      o.source=cell(g('source'))||'小仓'; o.inHand=(o.source==='陈列仓');
+      o.source=cell(g('source'))||'小仓'; o.inHand=(o.source==='陈列仓'); o.returned=bool(g('returned')); o.qc=cell(g('qc')); o.flaw=cell(g('flaw')); o.cashed=bool(g('cashed'));
       o.ts=(function(){var c=g('created'),n=0;if(c!=null&&c!==''){var x=typeof c==='number'?c:parseFloat(String(c).replace(/[^0-9.]/g,''));if(!isNaN(x)&&x>0)n=x;}if(!n&&it.createdTime)n=+it.createdTime;return n?(n<1e12?n*1000:n):0;})();
       o.mts=it.modifiedTime?(+it.modifiedTime<1e12?+it.modifiedTime*1000:+it.modifiedTime):0;
+      o.qc=cell(g('qc')); o.flaw=cell(g('flaw'));
+      o.rts=(function(){var c=g('repoStart'),n=0;if(c!=null&&c!==''){var x=typeof c==='number'?c:parseFloat(String(c).replace(/[^0-9.]/g,''));if(!isNaN(x)&&x>0)n=x;}return n?(n<1e12?n*1000:n):o.ts;})();
       return o;
     });
     LIVE=true; conn(true);
@@ -182,6 +184,13 @@ function agg(){
   const brokenN=broken.reduce((a,r)=>a+r.qtyN,0);
   const oosN=rows.filter(r=>r.oos).reduce((a,r)=>a+r.qtyN,0);
   const rate=tried?Math.round(doneN/tried*100):0;
+  // 归位与质检
+  const repoRows=rows.filter(r=>r.archived&&!r.returned&&(r.inHand||!r.bought));
+  const repoWaitN=repoRows.reduce((a,r)=>a+r.qtyN,0);
+  const repoOverCang=repoRows.filter(r=>r.inHand&&r.rts&&(Date.now()-r.rts)/60000>=15).reduce((a,r)=>a+r.qtyN,0);
+  const repoOverXiao=repoRows.filter(r=>!r.inHand&&r.rts&&(Date.now()-r.rts)/60000>=60).reduce((a,r)=>a+r.qtyN,0);
+  const flawPend=rows.filter(r=>r.archived&&r.returned&&r.qc==='有瑕疵'&&r.flaw!=='已退回总仓').reduce((a,r)=>a+r.qtyN,0);
+  const cashedN=rows.filter(r=>r.cashed).reduce((a,r)=>a+r.qtyN,0);
   // 来源拆分
   const cangN=rows.filter(r=>!r.inHand).reduce((a,r)=>a+r.qtyN,0);
   const handN=rows.filter(r=>r.inHand).reduce((a,r)=>a+r.qtyN,0);
@@ -205,7 +214,7 @@ function agg(){
   const guides=Object.entries(gMap).map(([k,v])=>({name:k,n:v.n,cu:v.cu.size})).sort((a,b)=>b.n-a.n).slice(0,6);
   const bMap={}; rows.filter(r=>r.oos||!r.finalCode).forEach(r=>{const k=(r.styleCode||r.name||'?')+'¦'+(r.color||'')+'¦'+(r.spec||''); if(!bMap[k])bMap[k]={name:r.name||r.styleCode,color:r.color,spec:r.spec,n:0,tag:r.oos?'缺货':'断码'}; bMap[k].n+=r.qtyN;});
   const restock=Object.values(bMap).sort((a,b)=>b.n-a.n).slice(0,8);
-  return {tried,doneN,sessions,brokenN,oosN,rate,cangN,handN,avgMin,overRate,overPicked,pickedN:durs.length,overdueNow,styles,colors,sizes,guides,restock,total:rows.length};
+  return {tried,doneN,sessions,brokenN,oosN,rate,cangN,handN,avgMin,overRate,overPicked,pickedN:durs.length,overdueNow,styles,colors,sizes,guides,restock,repoWaitN,repoOverCang,repoOverXiao,flawPend,cashedN,total:rows.length};
 }
 
 function render(){
@@ -231,6 +240,12 @@ function render(){
     <div class="src-card"><div class="v" style="${a.overdueNow>0?'color:var(--bad)':'color:var(--green)'}">${a.overdueNow}</div><div class="l">当前超时件</div></div>
   </div></div></section>`;
 
+  // 归位与质检
+  h+=`<section class="reveal"><div class="sec-h"><span class="t">归位与质检</span><span class="meta">超时 陈列15分/小仓60分</span></div><div class="panel"><div class="src-split">
+    <div class="src-card"><div class="v" style="${(a.repoOverCang+a.repoOverXiao)>0?'color:var(--bad)':'color:var(--green)'}">${a.repoOverCang+a.repoOverXiao}</div><div class="l">归位超时件</div></div>
+    <div class="src-card"><div class="v">${a.repoWaitN}</div><div class="l">待归位件</div></div>
+    <div class="src-card"><div class="v" style="${a.flawPend>0?'color:var(--bad)':'color:var(--ink)'}">${a.flawPend}</div><div class="l">待处理瑕疵</div></div>
+  </div></div></section>`;
   // 来源拆分
   h+=`<section class="reveal"><div class="sec-h"><span class="t">取货来源</span><span class="meta">小仓 vs 陈列仓</span></div><div class="panel"><div class="src-split">
     <div class="src-card"><div class="v">${a.cangN}</div><div class="l">小仓配货</div></div>

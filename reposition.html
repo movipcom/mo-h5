@@ -132,6 +132,74 @@
   .allbtn{margin-left:auto;height:30px;padding:0 14px;border-radius:2px;border:1px solid var(--ink);background:var(--ink);color:#fff;font-size:11px;font-weight:600;letter-spacing:.04em;cursor:pointer;}
   #app{animation:appIn .5s cubic-bezier(.2,.7,.3,1) both;}
 </style>
+
+<style>
+  .tabs{display:flex;gap:8px;margin:14px 16px 0;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:4px;}
+  .tabs button{flex:1;height:40px;border:none;background:transparent;border-radius:2px;font-size:14px;font-weight:600;color:var(--ink-2);font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;}
+  .tabs button.on{background:var(--ink);color:#fff;}
+  .tabs .cnt{font-family:var(--mono);font-size:11px;background:rgba(0,0,0,.08);color:inherit;border-radius:99px;padding:1px 7px;}
+  .tabs button.on .cnt{background:rgba(255,255,255,.2);}
+  .seg2{display:flex;gap:18px;margin:14px 18px 0;}
+  .seg2 button{background:none;border:none;font-size:14px;font-weight:600;color:var(--ink-3);font-family:inherit;cursor:pointer;padding:0 0 8px;position:relative;}
+  .seg2 button.on{color:var(--ink);} .seg2 button.on::after{content:'';position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--ink);}
+  .seg2 .b{font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-left:5px;}
+  .gcard{background:var(--surface);border:1px solid var(--line);border-radius:4px;margin-bottom:12px;overflow:hidden;box-shadow:var(--shadow,0 1px 2px rgba(0,0,0,.04));}
+  .gcard.over{border-color:#E2C2BD;box-shadow:inset 4px 0 0 var(--bad);}
+  .gcard.flaw{border-color:#E6C9A8;}
+  .gc-top{display:flex;align-items:center;gap:11px;padding:14px 15px 12px;}
+  .gc-sw{width:13px;height:13px;border-radius:50%;flex:0 0 auto;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08);}
+  .gc-tx{flex:1;min-width:0;}
+  .gc-nm{font-size:13.5px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .gc-meta{margin-top:3px;font-family:var(--mono);font-size:11px;color:var(--ink-3);}
+  .gc-q{font-family:var(--mono);font-size:22px;font-weight:600;flex:0 0 auto;}
+  .gc-q small{font-size:11px;color:var(--ink-3);font-weight:400;}
+  .gc-badges{display:flex;gap:7px;flex-wrap:wrap;padding:0 15px 12px;}
+  .tb{font-size:10.5px;font-weight:700;letter-spacing:.03em;border-radius:2px;padding:3px 8px;}
+  .tb.over{color:#fff;background:var(--bad);animation:overPulse 1.3s ease-in-out infinite;}
+  .tb.wait{color:var(--ink-3);background:var(--surface-2);border:1px solid var(--line);}
+  .tb.flaw{color:#8A6A1E;background:#F6ECD6;}
+  @keyframes overPulse{0%,100%{opacity:1}50%{opacity:.5}}
+  .gc-bc{padding:0 15px 12px;}
+  .gc-bc svg{width:100%;height:42px;display:block;}
+  .gc-bc .code{font-family:var(--mono);font-size:11px;color:var(--ink-3);text-align:center;margin-top:3px;letter-spacing:.06em;}
+  .gc-acts{display:flex;gap:9px;padding:0 15px 14px;}
+  .gc-acts button{height:42px;border-radius:3px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;}
+  .gc-acts .minus{flex:0 0 auto;width:50px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:20px;}
+  .gc-acts .allbtn2{flex:1;border:none;background:var(--ink);color:#fff;}
+  .qc-bar{padding:11px 15px;background:var(--surface-2);border-top:1px dashed var(--line);}
+  .qc-l{font-size:11.5px;color:var(--ink-2);font-weight:600;margin-bottom:8px;}
+  .qc-opts{display:flex;gap:8px;}
+  .qc-opts button{flex:1;height:36px;border:1px solid var(--line);background:var(--surface);border-radius:2px;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;color:var(--ink-2);}
+  .qc-opts button.pass.on{background:var(--green);border-color:var(--green);color:#fff;}
+  .qc-opts button.flaw.on{background:#B98A3A;border-color:#B98A3A;color:#fff;}
+  .qc-flaw{margin-top:9px;display:flex;gap:8px;}
+  .qc-flaw button{flex:1;height:34px;border:1px solid var(--line);background:var(--surface);border-radius:2px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;}
+  .qc-flaw button.ret.on{background:var(--green);border-color:var(--green);color:#fff;}
+  .qc-flaw button.no.on{background:var(--bad);border-color:var(--bad);color:#fff;}
+  .scan-fab{position:absolute;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);padding:13px 18px calc(13px + env(safe-area-inset-bottom));display:flex;gap:13px;align-items:center;}
+  .scan-fab .sum .n{font-family:var(--mono);font-size:22px;font-weight:600;}
+  .scan-fab .sum .l{font-size:10px;color:var(--ink-3);}
+  .scan-fab .go{flex:1;height:52px;border:none;border-radius:3px;background:var(--ink);color:#fff;font-size:16px;font-weight:600;font-family:inherit;display:inline-flex;align-items:center;justify-content:center;gap:9px;cursor:pointer;}
+  .scanlayer{position:absolute;inset:0;z-index:50;background:#0B0A09;display:none;flex-direction:column;}
+  .scanlayer.show{display:flex;}
+  .scan-top{flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:16px 18px;color:#fff;}
+  .scan-top .stitle{flex:1;font-size:15px;font-weight:600;}
+  .scan-close{width:34px;height:34px;border-radius:2px;border:none;background:rgba(255,255,255,.12);color:#fff;display:grid;place-items:center;cursor:pointer;}
+  .scan-view{flex:1;position:relative;overflow:hidden;}
+  #reader{position:absolute;inset:0;}#reader video{width:100%!important;height:100%!important;object-fit:cover!important;}
+  .reticle{position:absolute;left:50%;top:50%;width:250px;height:150px;transform:translate(-50%,-50%);pointer-events:none;}
+  .reticle i{position:absolute;width:24px;height:24px;border:2px solid #fff;}
+  .reticle i:nth-child(1){left:0;top:0;border-right:0;border-bottom:0;}.reticle i:nth-child(2){right:0;top:0;border-left:0;border-bottom:0;}
+  .reticle i:nth-child(3){left:0;bottom:0;border-right:0;border-top:0;}.reticle i:nth-child(4){right:0;bottom:0;border-left:0;border-top:0;}
+  .scan-foot{flex:0 0 auto;padding:16px 18px calc(16px + env(safe-area-inset-bottom));display:flex;gap:10px;}
+  .scan-foot button{flex:1;height:46px;border-radius:2px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;}
+  .scan-foot .dbtn{background:#fff;color:#16140F;border-color:#fff;}
+  .state2{padding:50px 24px;text-align:center;color:var(--ink-3);}
+  .state2 h4{font-size:15px;color:var(--ink-2);margin:12px 0 5px;font-weight:600;}
+  .state2 p{font-size:12.5px;}
+  main{padding-bottom:96px;}
+  #app{animation:appIn .5s cubic-bezier(.2,.7,.3,1) both;}
+</style>
 </head>
 <body>
 <div class="grain"></div>
@@ -139,25 +207,24 @@
   <header>
     <div class="top">
       <div class="wordmark">MO</div>
-      <div class="htxt">
-        <div class="eyebrow">Reposition Station · 归位台</div>
-        <h1>待归位 <span class="who" id="meName" onclick="setOperator()">归位员</span></h1>
-      </div>
+      <div class="htxt"><div class="eyebrow">Reposition Station · 归位台</div><h1>理货归位 <span class="who" id="meName" onclick="setOperator()">归位员</span></h1></div>
       <span class="pill" id="srcPill" onclick="refresh()"><span class="led"></span><span id="srcTxt">连接中</span></span>
     </div>
   </header>
+  <div class="tabs" id="tabs">
+    <button data-t="陈列仓" class="on" onclick="setTab('陈列仓')">陈列仓 <span class="cnt" id="cntCang">0</span></button>
+    <button data-t="小仓" onclick="setTab('小仓')">小仓 <span class="cnt" id="cntXiao">0</span></button>
+  </div>
+  <div class="seg2" id="seg2"></div>
   <main id="list"></main>
-  <div class="addbar">
+  <div class="scan-fab">
     <div class="sum"><div class="n" id="sumN">0</div><div class="l">件 · 待归位</div></div>
-    <button class="scan" onclick="openScan()">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="12" rx="1" stroke="currentColor" stroke-width="1.6"/><path d="M7 6v12M11 6v12M15 6v12M18 6v12" stroke="currentColor" stroke-width="1.3"/></svg>
-      扫码归位
-    </button>
+    <button class="go" onclick="openScan()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="12" rx="1" stroke="currentColor" stroke-width="1.6"/><path d="M7 6v12M11 6v12M15 6v12M18 6v12" stroke="currentColor" stroke-width="1.3"/></svg>扫码归位</button>
   </div>
   <div class="toast" id="toast"></div>
 
   <div class="scanlayer" id="scanLayer">
-    <div class="scan-top"><div class="stitle">扫码归位 · 扫吊牌即归位</div>
+    <div class="scan-top"><div class="stitle" id="scanTitle">扫码归位 · 扫吊牌即归位</div>
       <button class="scan-close" onclick="closeScan()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
     </div>
     <div class="scan-view"><div id="reader"></div><div class="reticle"><i></i><i></i><i></i><i></i></div></div>
@@ -170,9 +237,10 @@ const API='/api/feishu';
 const BARCODE_CDN='https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js';
 const SCAN_CDN='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';
 const ST_DONE='配货完成';
-const FIELD={ id:'明细ID', customer:'客户', guidePerson:'导购员', status:'状态', archive:'试衣完成', bought:'已购买', returned:'已归位', source:'取货来源',
-  styleCode:'识别款式编码', name:'商品名称', scanCode:'扫码商品编码', color:'颜色', finalCode:'最终商品编码', spec:'规格', barcode:'条形码', qty:'数量', barcodeImg:'条形码图形' };
-let RAW=[], LIVE=false;
+const OVERDUE={ '陈列仓':15, '小仓':60 };   // 归位超时阈值(分钟)
+const FIELD={ id:'明细ID', customer:'客户', guidePerson:'导购员', status:'状态', archive:'试衣完成', bought:'已购买', returned:'已归位', source:'取货来源', qc:'质检', flaw:'瑕疵去向', repoStart:'归位开始时间', created:'创建时间',
+  styleCode:'识别款式编码', name:'商品名称', scanCode:'扫码商品编码', color:'颜色', finalCode:'最终商品编码', spec:'规格', barcode:'条形码', qty:'数量' };
+let RAW=[], LIVE=false, TAB='陈列仓', SEG='待归位';
 let OP=''; try{OP=localStorage.getItem('mo_operator')||'';}catch(e){}
 function applyOP(){const el=document.getElementById('meName');if(el)el.textContent=OP||'归位员';}
 function setOperator(){const n=prompt('请输入你的名字（归位员）',OP||'');if(n!=null){OP=n.trim();try{localStorage.setItem('mo_operator',OP);}catch(e){}applyOP();}}
@@ -181,15 +249,17 @@ function cell(v){ if(v==null)return''; if(Array.isArray(v)){ if(v.length&&typeof
 function num(v){const n=parseFloat(String(cell(v)).replace(/[^\d.\-]/g,''));return isNaN(n)?0:n;}
 function bool(v){return v===true||v==='true';}
 function jsq(s){return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
+function tsField(g,key,it){ let n=0; const c=g(key); if(c!=null&&c!==''){ const x=typeof c==='number'?c:parseFloat(String(c).replace(/[^0-9.]/g,'')); if(!isNaN(x)&&x>0)n=x; } if(!n&&key==='created'&&it&&it.createdTime)n=+it.createdTime; if(!n)return 0; return n<1e12?n*1000:n; }
 function colorHex(n){ n=String(n||''); const m=[['黑','#211E19'],['藏青','#33415C'],['深空','#3B3B40'],['烟','#5B5750'],['碳','#3E3B36'],['灰','#9C988E'],['白','#ECE9E1'],['麻','#BCAC91'],['燕麦','#C9B79A'],['卡其','#B7A083'],['咖','#8A6A4E'],['棕','#8A6A4E'],['茶','#6E5847'],['红','#AE463E'],['粉','#D2A2AB'],['樱','#D2A2AB'],['藕','#9F8290'],['紫','#9A7E9C'],['黄','#D6C277'],['酪','#D8CE9E'],['牛仔','#5C7494'],['蓝','#6F8CAE'],['绿','#7C8264'],['橄榄','#7C8264']]; for(const [k,v] of m) if(n.includes(k)) return v; return '#BBB5A9'; }
 async function post(body){ const res=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); const j=await res.json(); if(!j.ok)throw new Error(j.error||'请求失败'); return j; }
 let tt;function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),1700);}
-function gname(r){return r.guidePerson||'';}
 
-function normalize(items){ return items.map(it=>{ const f=it.fields||{},g=k=>f[FIELD[k]],r={_id:it.recordId}; for(const k in FIELD)r[k]=cell(g(k)); r.qtyN=num(g('qty'))||1; r.archived=bool(g('archive')); r.bought=bool(g('bought')); r.returned=bool(g('returned')); r.source=cell(g('source'))||'小仓'; r.inHand=(r.source==='陈列仓'); r.bcText=r.finalCode||r.barcode||r.scanCode||''; return r; }); }
+function normalize(items){ return items.map(it=>{ const f=it.fields||{},g=k=>f[FIELD[k]],r={_id:it.recordId}; for(const k in FIELD)r[k]=cell(g(k)); r.qtyN=num(g('qty'))||1; r.archived=bool(g('archive')); r.bought=bool(g('bought')); r.returned=bool(g('returned')); r.source=cell(g('source'))||'小仓'; r.inHand=(r.source==='陈列仓'); r.qc=cell(g('qc')); r.flaw=cell(g('flaw')); r.bcText=r.finalCode||r.barcode||r.scanCode||''; r.rts=tsField(g,'repoStart',it)||tsField(g,'created',it); return r; }); }
 
-/* 待归位 = 已结束(试衣完成) 且 未归位 且 (陈列样衣 或 未购买) */
-function needRet(r){ return r.archived && !r.returned && (r.inHand || !r.bought); }
+/* 待归位 = 已结束 且 未归位 且 (陈列样衣 或 未购买)；瑕疵未退回单独成"待处理瑕疵" */
+function needRepo(r){ return r.archived && !r.returned && (r.inHand || !r.bought); }
+function isFlawPending(r){ return r.archived && r.returned && r.qc==='有瑕疵' && r.flaw!=='已退回总仓'; }
+function repoMin(r){ return r.rts? Math.floor((Date.now()-r.rts)/60000) : -1; }
 
 async function refresh(){
   document.getElementById('srcTxt').textContent='连接中';
@@ -198,81 +268,127 @@ async function refresh(){
   applyOP(); render();
 }
 function setSrc(live){ const p=document.getElementById('srcPill'); p.className='pill '+(live?'live':'demo'); document.getElementById('srcTxt').textContent=live?'已连接飞书':'演示数据'; }
+function setTab(t){ TAB=t; SEG='待归位'; document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t)); render(); }
+function setSeg(s){ SEG=s; render(); }
+
+/* 按编码归类 */
+function groupRepo(tab){
+  const rows=RAW.filter(r=>needRepo(r) && r.source===tab);
+  const g={};
+  rows.forEach(r=>{ const k=r.finalCode||r.bcText||(r.styleCode+r.color+r.spec); if(!g[k])g[k]={code:r.finalCode||r.bcText||'(无码)',name:r.name,color:r.color,spec:r.spec,items:[],min:0}; g[k].items.push(r); });
+  Object.values(g).forEach(grp=>{ grp.qty=grp.items.reduce((a,r)=>a+r.qtyN,0); grp.min=Math.max(...grp.items.map(repoMin)); });
+  // 超时置顶
+  return Object.values(g).sort((a,b)=>{ const oa=a.min>=OVERDUE[tab], ob=b.min>=OVERDUE[tab]; if(oa!==ob)return oa?-1:1; return b.min-a.min; });
+}
+function flawList(){ return RAW.filter(isFlawPending); }
 
 function render(){
-  const rows=RAW.filter(needRet);
-  document.getElementById('sumN').textContent=rows.reduce((a,r)=>a+r.qtyN,0);
+  // tab 计数
+  document.getElementById('cntCang').textContent=RAW.filter(r=>needRepo(r)&&r.source==='陈列仓').reduce((a,r)=>a+r.qtyN,0);
+  document.getElementById('cntXiao').textContent=RAW.filter(r=>needRepo(r)&&r.source==='小仓').reduce((a,r)=>a+r.qtyN,0);
+  const flawN=flawList().reduce((a,r)=>a+r.qtyN,0);
+  // 二级分段
+  const seg=document.getElementById('seg2');
+  seg.innerHTML=`<button class="${SEG==='待归位'?'on':''}" onclick="setSeg('待归位')">待归位<span class="b" id="segWaitN">0</span></button>`+
+    (TAB==='小仓'?`<button class="${SEG==='待处理瑕疵'?'on':''}" onclick="setSeg('待处理瑕疵')">待处理瑕疵<span class="b">${flawN}</span></button>`:'');
+  const groups=groupRepo(TAB);
+  const waitN=groups.reduce((a,g)=>a+g.qty,0);
+  const segWN=document.getElementById('segWaitN'); if(segWN)segWN.textContent=waitN;
+  document.getElementById('sumN').textContent= SEG==='待处理瑕疵'? flawN : waitN;
+
   const main=document.getElementById('list');
-  if(!rows.length){ main.innerHTML='<div class="state"><svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4L19 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><h4>没有待归位</h4><p>试穿完未购买/陈列样衣会出现在这里</p></div>'; return; }
-  // 分组 导购×客户
-  const groups={}; rows.forEach(r=>{ const k=gname(r)+'\u0001'+(r.customer||''); (groups[k]=groups[k]||{guide:gname(r),customer:r.customer||'',items:[]}).items.push(r); });
-  let h=''; if(!LIVE)h='<div class="errbar">演示数据 — 真实环境会显示导购结算后待归位的件。</div>';
-  Object.values(groups).forEach(g=>{
-    h+=`<div class="grp"><div class="grp-h"><span class="gn">${g.guide?g.guide+'的':''}${g.customer||'未指定'}</span><span class="gq">${g.items.length} 件</span><button class="allbtn" onclick='retGroup("${jsq(g.guide)}","${jsq(g.customer)}")'>全部归位</button></div>`;
-    g.items.forEach(r=>{
-      const tag=r.inHand?'<span class="src-pill hand">回陈列架</span>':'<span class="src-pill cang">回小仓</span>';
-      h+=`<div class="card">
-        <div class="c-name">${r.name||'未匹配'}</div>
-        <div class="c-attrs">${r.color?`<span class="attr"><span class="swatch" style="background:${colorHex(r.color)}"></span>${r.color}</span>`:''}${r.spec?`<span class="size-pill">${r.spec}</span>`:''}${tag}</div>
-        <div class="bc-wrap">${r.bcText?`<svg class="bc" data-code="${r.bcText}"></svg><div class="bc-code">${r.bcText}</div>`:'<div class="bc-code none">无条码</div>'}</div>
-        <button class="ret-btn" onclick='retOne("${r._id}")'><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4L19 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg> 已归位</button>
-      </div>`;
-    });
-    h+='</div>';
+  if(SEG==='待处理瑕疵'){ renderFlaw(main); return; }
+  if(!groups.length){ main.innerHTML=`<div class="state2"><svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4L19 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><h4>${TAB} 没有待归位</h4><p>试穿完未购买/陈列样衣会按编码出现在这里</p></div>`; return; }
+  const lim=OVERDUE[TAB];
+  let h=''; if(!LIVE)h='<div class="errbar" style="margin:14px 16px 0">演示数据 — 真实环境显示导购结算后待归位的件，按编码归类。</div>';
+  groups.forEach(g=>{
+    const over=g.min>=lim;
+    const badge = over?`<span class="tb over">⏱ 归位超时 ${g.min}分</span>`:`<span class="tb wait">⏱ 等待 ${g.min<0?0:g.min}分</span>`;
+    h+=`<div class="gcard ${over?'over':''}">
+      <div class="gc-top"><span class="gc-sw" style="background:${colorHex(g.color)}"></span>
+        <div class="gc-tx"><div class="gc-nm">${g.name||g.code}</div><div class="gc-meta">${g.code}${g.color?' · '+g.color:''}${g.spec?' '+g.spec:''}</div></div>
+        <div class="gc-q">${g.qty}<small> 件</small></div></div>
+      <div class="gc-badges">${badge}</div>
+      <div class="gc-bc">${g.code&&g.code!=='(无码)'?`<svg class="bc" data-code="${g.code}"></svg><div class="code">${g.code}</div>`:'<div class="code">无条码</div>'}</div>`;
+    if(TAB==='小仓'){
+      const st=qcState[g.code]||{qc:'',flaw:''};
+      h+=`<div class="qc-bar"><div class="qc-l">质检（提醒，可不填）</div><div class="qc-opts">
+        <button class="pass ${st.qc==='通过'?'on':''}" onclick='qcSet("${jsq(g.code)}","qc","通过")'>✓ 通过</button>
+        <button class="flaw ${st.qc==='有瑕疵'?'on':''}" onclick='qcSet("${jsq(g.code)}","qc","有瑕疵")'>有瑕疵</button></div>`;
+      if(st.qc==='有瑕疵'){ h+=`<div class="qc-flaw">
+        <button class="ret ${st.flaw==='已退回总仓'?'on':''}" onclick='qcSet("${jsq(g.code)}","flaw","已退回总仓")'>已退回总仓</button>
+        <button class="no ${st.flaw==='未退回'?'on':''}" onclick='qcSet("${jsq(g.code)}","flaw","未退回")'>暂未退回</button></div>`; }
+      h+=`</div>`;
+    }
+    h+=`<div class="gc-acts"><button class="minus" onclick='repoOne("${jsq(g.code)}")'>−1</button><button class="allbtn2" onclick='repoAll("${jsq(g.code)}")'>整组归位 · ${g.qty}</button></div>
+    </div>`;
   });
   main.innerHTML=h; renderBarcodes();
+}
+function renderFlaw(main){
+  const rows=flawList();
+  if(!rows.length){ main.innerHTML=`<div class="state2"><svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4L19 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><h4>没有待处理瑕疵</h4><p>有瑕疵且未退回总仓的件会留在这里</p></div>`; return; }
+  let h='';
+  rows.forEach(r=>{ h+=`<div class="gcard flaw">
+    <div class="gc-top"><span class="gc-sw" style="background:${colorHex(r.color)}"></span>
+      <div class="gc-tx"><div class="gc-nm">${r.name||r.bcText}</div><div class="gc-meta">${r.bcText}${r.color?' · '+r.color:''}${r.spec?' '+r.spec:''} · ${r.customer||''}</div></div></div>
+    <div class="gc-badges"><span class="tb flaw">有瑕疵 · 未退回</span></div>
+    <div class="gc-acts"><button class="allbtn2" onclick='flawReturn("${r._id}")'>标记已退回总仓 · 结束</button></div>
+  </div>`; });
+  main.innerHTML=h;
 }
 
 let bcLoaded=false;
 function loadBC(){return new Promise(res=>{ if(window.JsBarcode){bcLoaded=true;return res(true);} const s=document.createElement('script');s.src=BARCODE_CDN;s.onload=()=>{bcLoaded=true;res(true);};s.onerror=()=>res(false);document.head.appendChild(s);});}
-async function renderBarcodes(){ const els=document.querySelectorAll('svg.bc[data-code]'); if(!els.length)return; const ok=await loadBC(); if(!ok||!window.JsBarcode)return; els.forEach(el=>{ try{ JsBarcode(el,el.dataset.code,{format:'CODE128',displayValue:false,height:46,margin:0,width:1.7}); }catch(e){} }); }
+async function renderBarcodes(){ const els=document.querySelectorAll('svg.bc[data-code]'); if(!els.length)return; const ok=await loadBC(); if(!ok||!window.JsBarcode)return; els.forEach(el=>{ try{ JsBarcode(el,el.dataset.code,{format:'CODE128',displayValue:false,height:42,margin:0,width:1.6}); }catch(e){} }); }
 
-async function retOne(id){
-  const r=RAW.find(x=>x._id===id); if(!r)return;
-  r.returned=true; render();   // 乐观
-  if(!LIVE)return;
-  try{ await post({action:'update',recordId:id,fields:{[FIELD.returned]:true}}); }
-  catch(e){ r.returned=false; toast('归位同步失败，已还原'); render(); }
+/* 质检暂存(按编码组) */
+let qcState={};
+function qcSet(code,key,val){ const s=qcState[code]||(qcState[code]={qc:'',flaw:''}); s[key]= (s[key]===val?'':val); if(key==='qc'&&val!=='有瑕疵')s.flaw=''; render(); }
+
+/* 写一条记录已归位(带质检) */
+function buildRepoFields(r){
+  const f={[FIELD.returned]:true};
+  if(TAB==='小仓'){ const s=qcState[r.finalCode||r.bcText]; if(s){ if(s.qc)f[FIELD.qc]=s.qc; if(s.qc==='有瑕疵'&&s.flaw)f[FIELD.flaw]=s.flaw; } }
+  return f;
 }
-async function retGroup(guide,customer){
-  const ids=RAW.filter(r=>needRet(r)&&gname(r)===guide&&r.customer===customer).map(r=>r._id);
-  for(const id of ids){ const r=RAW.find(x=>x._id===id); if(r)r.returned=true; }
+async function repoRecords(recs){
+  if(!recs.length)return;
+  recs.forEach(r=>{ r.returned=true; const s=qcState[r.finalCode||r.bcText]; if(s){r.qc=s.qc||r.qc; r.flaw=s.flaw||r.flaw;} });
   render();
   if(!LIVE)return;
-  Promise.all(ids.map(id=>post({action:'update',recordId:id,fields:{[FIELD.returned]:true}}))).catch(e=>{ toast('部分归位失败，请刷新'); refresh(); });
+  Promise.all(recs.map(r=>post({action:'update',recordId:r._id,fields:buildRepoFields(r)}))).catch(e=>{ toast('部分归位失败，请刷新'); refresh(); });
 }
+function groupItems(code){ return RAW.filter(r=>needRepo(r)&&r.source===TAB&&(r.finalCode===code||r.bcText===code)); }
+function repoOne(code){ const items=groupItems(code); if(!items.length)return; repoRecords([items[0]]); toast('已归位 1 件 · '+code); }
+function repoAll(code){ const items=groupItems(code); if(!items.length)return; repoRecords(items); toast('已归位 '+items.reduce((a,r)=>a+r.qtyN,0)+' 件 · '+code); }
+async function flawReturn(id){ const r=RAW.find(x=>x._id===id); if(!r)return; r.flaw='已退回总仓'; render(); if(!LIVE)return; try{ await post({action:'update',recordId:id,fields:{[FIELD.flaw]:'已退回总仓'}}); toast('已退回总仓 · 结束'); }catch(e){ r.flaw='未退回'; toast('同步失败'); render(); } }
 
-/* 扫码归位：扫到的码在待归位里找匹配 → 标已归位（不防错，找不到则提示） */
-let h5q=null,scanning=false,lastCode='',lastT=0;
+/* 扫码:在当前 Tab 待归位里找第一条同码 → 归位 */
+let h5q=null,scanning=false,lastCode='',lastT=0,actx;
 function loadScanLib(){return new Promise(res=>{ if(window.Html5Qrcode)return res(true); const s=document.createElement('script');s.src=SCAN_CDN;s.onload=()=>res(true);s.onerror=()=>res(false);document.head.appendChild(s);});}
-async function openScan(){
-  document.getElementById('scanLayer').classList.add('show');
-  const ok=await loadScanLib(); if(!ok||!window.Html5Qrcode){ toast('扫码组件未加载'); return; }
-  try{ h5q=new Html5Qrcode('reader',{verbose:false}); await h5q.start({facingMode:'environment'},{fps:10,qrbox:{width:260,height:150}},onDecode,()=>{}); scanning=true; }
-  catch(e){ toast('无法打开相机：'+(e.message||e)); }
-}
-function onDecode(text){
-  const now=Date.now(); if(text===lastCode&&now-lastT<1500)return; lastCode=text; lastT=now;
-  const s=String(text).trim();
-  const r=RAW.find(x=>needRet(x)&&(x.finalCode===s||x.barcode===s||x.scanCode===s||x.bcText===s));
-  beep();
-  if(r){ retOne(r._id); toast('✓ 已归位 '+(r.name||s)); }
-  else { toast('未找到待归位项：'+s); }
-}
-let actx;function beep(){ try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); const o=actx.createOscillator(),g=actx.createGain(); o.type='sine';o.frequency.value=920;o.connect(g);g.connect(actx.destination); const t=actx.currentTime; g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.22,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+.12); o.start(t);o.stop(t+.13);}catch(e){} if(navigator.vibrate)navigator.vibrate(28); }
+async function openScan(){ document.getElementById('scanLayer').classList.add('show'); document.getElementById('scanTitle').textContent='扫码归位 · '+TAB+' · 扫一下消一件'; const ok=await loadScanLib(); if(!ok||!window.Html5Qrcode){toast('扫码组件未加载');return;} try{ h5q=new Html5Qrcode('reader',{verbose:false}); await h5q.start({facingMode:'environment'},{fps:10,qrbox:{width:260,height:150}},onDecode,()=>{}); scanning=true; }catch(e){ toast('无法打开相机：'+(e.message||e)); } }
+function onDecode(text){ const now=Date.now(); if(text===lastCode&&now-lastT<1200)return; lastCode=text;lastT=now; const s=String(text).trim(); beep(); const items=groupItems(s); if(items.length){ repoRecords([items[0]]); toast('✓ 已归位 1 件 · '+s); } else { toast('当前『'+TAB+'』无此待归位：'+s); } }
+function beep(){ try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); const o=actx.createOscillator(),g=actx.createGain(); o.type='sine';o.frequency.value=920;o.connect(g);g.connect(actx.destination); const t=actx.currentTime; g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.22,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+.12); o.start(t);o.stop(t+.13);}catch(e){} if(navigator.vibrate)navigator.vibrate(24); }
 async function closeScan(){ if(h5q&&scanning){ try{await h5q.stop();}catch(e){} try{h5q.clear();}catch(e){} } h5q=null;scanning=false; document.getElementById('scanLayer').classList.remove('show'); render(); }
 
 function demo(){
-  const base=[['客户1','王晟','Dokky【俱乐部字母T-D0902】印花字母短袖T恤','藏青','M','D0902M2','小仓',false],
-  ['客户1','王晟','Dokky【南法波点裙D0685】小复古百褶半身裙','复古红','F','D0685F1','陈列仓',true],
-  ['客户2','于德水','Dokky【缪系菱格D0683】复古菱格针织衫','燕麦','L','D0683L1','陈列仓',false],
-  ['客户2','于德水','Dokky【松弛廓形D0571】水洗直筒牛仔裤','牛仔蓝','XL','D0571XL3','小仓',false]];
-  return base.map((a,i)=>({_id:'demo'+i,customer:a[0],guidePerson:a[1],name:a[2],color:a[3],spec:a[4],finalCode:a[5],barcode:a[5],scanCode:a[5],bcText:a[5],source:a[6],inHand:a[6]==='陈列仓',bought:a[7],returned:false,archived:true,qtyN:1}));
+  const now=Date.now();
+  const base=[['客户1','王晟','Dokky【俱乐部字母T-D0902】印花字母短袖T恤','藏青','M','D0902M2','小仓',false,20],
+  ['客户1','王晟','Dokky【俱乐部字母T-D0902】印花字母短袖T恤','藏青','M','D0902M2','小仓',false,80],
+  ['客户1','王晟','Dokky【南法波点裙D0685】小复古百褶半身裙','复古红','F','D0685F1','陈列仓',true,5],
+  ['客户2','于德水','Dokky【缪系菱格D0683】复古菱格针织衫','燕麦','L','D0683L1','陈列仓',false,22],
+  ['客户2','于德水','Dokky【松弛廓形D0571】水洗直筒牛仔裤','牛仔蓝','XL','D0571XL3','小仓',false,40]];
+  const out=base.map((a,i)=>({_id:'demo'+i,customer:a[0],guidePerson:a[1],name:a[2],color:a[3],spec:a[4],finalCode:a[5],barcode:a[5],scanCode:a[5],bcText:a[5],source:a[6],inHand:a[6]==='陈列仓',bought:a[7],returned:false,archived:true,qc:'',flaw:'',qtyN:1,rts:now-a[8]*60000}));
+  // 一条待处理瑕疵示例
+  out.push({_id:'demoF',customer:'客户3',guidePerson:'小林',name:'Dokky【双面呢大衣D0488】羊毛阿尔巴卡',color:'卡其','spec':'L',finalCode:'D0488L2',barcode:'D0488L2',scanCode:'D0488L2',bcText:'D0488L2',source:'小仓',inHand:false,bought:false,returned:true,archived:true,qc:'有瑕疵',flaw:'未退回',qtyN:1,rts:now-90*60000});
+  return out;
 }
 
 refresh();
 async function silentRefresh(){ if(!LIVE)return; if(document.getElementById('scanLayer').classList.contains('show'))return; try{ const res=await fetch(API+'?action=list'); const j=await res.json(); if(!j.ok)return; RAW=normalize(j.items); render(); }catch(e){} }
 setInterval(silentRefresh,25000);
+setInterval(()=>{ if(!document.hidden && RAW.length && !document.getElementById('scanLayer').classList.contains('show')) render(); }, 30000);
 </script>
 </body>
 </html>
