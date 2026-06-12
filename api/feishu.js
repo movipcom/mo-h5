@@ -28,6 +28,29 @@ async function getToken() {
   return cache.token;
 }
 
+// ── 飞书免登：用预授权 code 换取当前用户身份 ──
+async function getAppToken() {
+  const r = await fetch(`${HOST}/open-apis/auth/v3/app_access_token/internal`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ app_id: APP_ID, app_secret: APP_SECRET }),
+  });
+  const j = await r.json();
+  if (j.code !== 0) throw new Error(`取 app_token 失败：${j.code} ${j.msg}`);
+  return j.app_access_token;
+}
+async function loginByCode(code) {
+  const appToken = await getAppToken();
+  const r = await fetch(`${HOST}/open-apis/authen/v1/access_token`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${appToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ grant_type: 'authorization_code', code }),
+  });
+  const j = await r.json();
+  if (j.code !== 0) throw new Error(`免登失败：${j.code} ${j.msg}`);
+  const d = j.data || {};
+  return { name: d.name || '', open_id: d.open_id || '', avatar: d.avatar_url || '' };
+}
+
 async function listAll(token, appToken, tableId) {
   const items = []; let pageToken = '';
   do {
@@ -133,6 +156,10 @@ module.exports = async (req, res) => {
   try {
     const token = await getToken();
     if (req.method === 'GET') {
+      if (req.query && req.query.action === 'login' && req.query.code) {
+        try { return res.status(200).json({ ok: true, ...(await loginByCode(req.query.code)) }); }
+        catch (e) { return res.status(200).json({ ok: false, error: String(e.message || e) }); }
+      }
       if (req.query && req.query.action === 'media' && req.query.file_token) {
         try {
           const { ct, buf } = await fetchMedia(token, req.query.file_token);
