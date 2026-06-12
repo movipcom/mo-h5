@@ -1,0 +1,25 @@
+========== 【2】Vercel / VPN版 ==========
+用途：传到 GitHub（movipcom 的仓库），Vercel 自动部署，
+      网址 mo-h5.vercel.app，需开VPN访问。
+
+【替换到 GitHub 仓库根目录】(同名覆盖)
+  guide.html
+  index.html
+  reposition.html
+  boss.html
+  老板看板-H5预览.html
+
+【api 目录】
+  api/feishu.js     ← Vercel 后端（如果你之前重置过飞书Secret，
+                       需在 Vercel 后台环境变量把 FEISHU_APP_SECRET
+                       改成最新值，否则连不上飞书）
+
+【注意】
+  这套页面【没有】config.js —— 故意的！
+  Vercel 版会自动用自带的 /api/feishu 后端，不需要 config.js。
+
+【操作】
+  GitHub 仓库 → Add file → Upload files → 拖入这些文件 → Commit
+  Vercel 检测到更新会自动重新部署（1-2分钟）。
+
+特点：条形码已内嵌，开VPN也能正常生成。
