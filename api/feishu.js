@@ -160,6 +160,9 @@ module.exports = async (req, res) => {
         try { return res.status(200).json({ ok: true, ...(await loginByCode(req.query.code)) }); }
         catch (e) { return res.status(200).json({ ok: false, error: String(e.message || e) }); }
       }
+      if (req.query && req.query.action === 'login') {
+        return res.status(200).json({ ok: false, error: 'login_endpoint_alive_no_code' });
+      }
       if (req.query && req.query.action === 'media' && req.query.file_token) {
         try {
           const { ct, buf } = await fetchMedia(token, req.query.file_token);
