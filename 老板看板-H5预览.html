@@ -108,6 +108,37 @@
   .src-card .v{font-family:var(--mono);font-size:21px;font-weight:600;}
   .src-card .l{font-size:11px;color:var(--ink-3);margin-top:4px;}
   .kpi .num.warn{color:var(--bad);}
+
+/* ============ MO 高级动效层（GPU友好·尊重无障碍·不随列表重绘重放） ============ */
+@media (prefers-reduced-motion: no-preference){
+  button,.slot,.card,.citem,.dbtn,.pill,.cf-qty button,.av,.size-pill,.attr,.chip,.tab{
+    transition: transform .13s cubic-bezier(.2,.8,.3,1), box-shadow .2s ease, border-color .2s ease, background-color .2s ease, color .2s ease, opacity .2s ease;
+  }
+  button:active,.slot:active,.dbtn:active,.cf-qty button:active,.chip:active,.tab:active{ transform: scale(.96); }
+  .citem:active,.card:active{ transform: scale(.993); }
+  .slot.sel{ transition: transform .2s cubic-bezier(.2,.9,.2,1.1), border-color .2s ease, box-shadow .2s ease; }
+  /* 全屏扫码层：纯淡入，避免影响摄像头画面 */
+  #scanLayer.show{ animation: moFadeIn .22s ease; }
+  @keyframes moFadeIn{ from{opacity:0;} to{opacity:1;} }
+  /* 结算层/确认卡/通用弹层：缩放淡入（class .show 添加时触发，列表重绘不重放） */
+  #coLayer.show,#confirmCard.show,.overlay.show,.layer.show,.modal.show{
+    animation: moLayerIn .28s cubic-bezier(.2,.8,.25,1);
+  }
+  @keyframes moLayerIn{ from{opacity:0; transform:translateY(8px) scale(.985);} to{opacity:1; transform:none;} }
+  /* 底部抽屉：上滑 */
+  #sheet.show,.tray.show{ animation: moSlideUp .3s cubic-bezier(.2,.85,.25,1); }
+  @keyframes moSlideUp{ from{transform:translateY(14px); opacity:.4;} to{transform:none; opacity:1;} }
+  /* toast 更顺滑 */
+  .toast{ transition: opacity .26s ease, transform .26s cubic-bezier(.2,.8,.3,1) !important; }
+  /* 看板数据条增长动画 */
+  .fill,.bar .fill{ transition: width .8s cubic-bezier(.2,.8,.25,1); }
+  /* 加载骨架微光（如页面有 .skeleton 元素自动生效） */
+  .skeleton{ background:linear-gradient(90deg,rgba(0,0,0,.05) 25%,rgba(0,0,0,.10) 37%,rgba(0,0,0,.05) 63%); background-size:400% 100%; animation: moShimmer 1.3s ease-in-out infinite; border-radius:4px; }
+  @keyframes moShimmer{ 0%{background-position:100% 0;} 100%{background-position:0 0;} }
+  /* 连接状态小圆点呼吸（live 时） */
+  .pill.live::before,.dot.live{ animation: moBreath 2s ease-in-out infinite; }
+  @keyframes moBreath{ 0%,100%{opacity:1;} 50%{opacity:.45;} }
+}
 </style>
 </head>
 <body>
@@ -131,7 +162,7 @@
 <script>
 const API=(window.MO_API||'/api/feishu');
 /* 飞书免登（看板：仅确认飞书身份，不按人过滤） */
-function feishuSSO(){ if(!window.h5sdk)return; try{ window.h5sdk.ready(function(){ tt.requestAuthCode({ appId:'cli_aaa001bbc8785cdb', success:function(info){ if(!info||!info.code)return; fetch(API+'?action=login&code='+encodeURIComponent(info.code)).then(function(r){return r.json();}).then(function(d){ if(d&&d.ok&&d.name){ window.__moUser=d.name; } }).catch(function(){}); }, fail:function(){} }); }); }catch(e){} }
+function feishuSSO(){ if(!window.h5sdk)return; try{ window.h5sdk.ready(function(){ window.tt.requestAuthCode({ appId:'cli_aaa001bbc8785cdb', success:function(info){ if(!info||!info.code)return; fetch(API+'?action=login&code='+encodeURIComponent(info.code)).then(function(r){return r.json();}).then(function(d){ if(d&&d.ok&&d.name){ window.__moUser=d.name; } }).catch(function(){}); }, fail:function(){} }); }); }catch(e){} }
 feishuSSO();
 let LIVE=true;
 const ST_DONE='配货完成';
