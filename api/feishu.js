@@ -33,11 +33,12 @@ async function listAll(token, appToken, tableId) {
   do {
     const url = new URL(`${HOST}/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}/records`);
     url.searchParams.set('page_size', '500');
+    url.searchParams.set('automatic_fields', 'true');
     if (pageToken) url.searchParams.set('page_token', pageToken);
     const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
     const j = await r.json();
     if (j.code !== 0) throw new Error(`读取记录失败：${j.code} ${j.msg}`);
-    for (const it of j.data.items || []) items.push({ recordId: it.record_id, fields: it.fields });
+    for (const it of j.data.items || []) items.push({ recordId: it.record_id, fields: it.fields, createdTime: it.created_time, modifiedTime: it.last_modified_time });
     pageToken = j.data.has_more ? j.data.page_token : '';
   } while (pageToken);
   return items;
