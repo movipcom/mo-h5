@@ -186,6 +186,8 @@
   .scan-foot{flex:0 0 auto;padding:16px 20px calc(18px + env(safe-area-inset-bottom));display:flex;gap:11px;}
   .scan-foot .mbtn{flex:1;height:46px;border-radius:2px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;font-size:13px;font-weight:600;letter-spacing:.04em;cursor:pointer;}
   .scan-foot .dbtn{flex:0 0 120px;height:46px;border-radius:2px;border:none;background:#fff;color:var(--ink);font-size:14px;font-weight:600;letter-spacing:.04em;cursor:pointer;}
+  .scan-foot .torchbig{flex:0 0 auto;height:46px;padding:0 16px;border-radius:2px;border:1px solid rgba(245,214,122,.55);background:rgba(245,214,122,.14);color:#F5D67A;font-size:13px;font-weight:700;letter-spacing:.02em;cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:.18s;}
+  .scan-foot .torchbig.on{background:#F5D67A;color:#16140F;border-color:#F5D67A;box-shadow:0 0 18px rgba(245,214,122,.6);}
   .manual{display:none;flex-direction:column;gap:13px;padding:30px 24px;align-items:center;text-align:center;color:#fff;}
   .manual.show{display:flex;}
   .manual p{margin:0;font-size:11px;letter-spacing:.04em;color:rgba(255,255,255,.6);}
@@ -378,6 +380,7 @@
     </div>
     <div class="scan-foot">
       <button class="mbtn" onclick="toggleManual()">手动输入</button>
+      <button class="torchbig" id="torchBig" onclick="toggleTorch()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M13 2L4.5 13H11l-1 9 8.5-12H12l1-8z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg><span>手电筒</span></button>
       <button class="dbtn" onclick="closeScan()">完成</button>
     </div>
 
@@ -576,6 +579,9 @@ function elapsedMin(r){ return r.ts? Math.floor((Date.now()-r.ts)/60000) : -1; }
 
 let RAW=[], LIVE=false, slot='客户1';
 let OP=''; try{OP=localStorage.getItem('mo_operator')||'';}catch(e){}
+let MINE=true;
+/* 彻底隔离：导购只能看到自己的单（导购员字段=OP），看不到其他导购的客户。无切换开关。 */
+function viewRows(){ if(!OP)return []; return RAW.filter(r=>String(r.guidePerson||'').trim()===String(OP).trim()); }
 let extraSlots=[];
 let lastSize={};   // 记住每位顾客上次选的码，作为默认
 let IDX={byCode:{}, styleMap:{}}, libCount=0;
@@ -677,10 +683,10 @@ const slotColors={'客户1':'var(--c1)','客户2':'var(--c2)','客户3':'var(--c
 function slotColor(s){return slotColors[s]||'#8A857B';}
 function av(s){return `<span class="av" style="background:${slotColor(s)}">${(s||'·').replace(/[^0-9]/g,'')||(s||'·')[0]}</span>`;}
 function slotNum(s){const m=String(s).match(/(\d+)/);return m?parseInt(m[1]):999;}
-function slots(){return [...new Set([...SLOTS_DEFAULT,...extraSlots,...RAW.map(r=>r.customer).filter(Boolean)])].sort((a,b)=>slotNum(a)-slotNum(b));}
-function activeOf(s){return RAW.filter(r=>r.customer===s&&!r.archived&&r.todo);}
-function doneOf(s){return RAW.filter(r=>r.customer===s&&!r.archived&&!r.todo);}
-function allOf(s){return RAW.filter(r=>r.customer===s&&!r.archived).slice().sort((x,y)=>(x.todo===y.todo)?0:(x.todo?-1:1));}
+function slots(){const V=viewRows();return [...new Set([...SLOTS_DEFAULT,...extraSlots,...V.map(r=>r.customer).filter(Boolean)])].sort((a,b)=>slotNum(a)-slotNum(b));}
+function activeOf(s){return viewRows().filter(r=>r.customer===s&&!r.archived&&r.todo);}
+function doneOf(s){return viewRows().filter(r=>r.customer===s&&!r.archived&&!r.todo);}
+function allOf(s){return viewRows().filter(r=>r.customer===s&&!r.archived).slice().sort((x,y)=>(x.todo===y.todo)?0:(x.todo?-1:1));}
 function cartCount(s){return allOf(s).reduce((x,r)=>x+r.qtyN,0);}
 /* 试衣结算：逐件标 已购买/未购买，未购买需归位，全部处理完才归档 */
 let coState={}, returnScanMode=false, scanReturnId=null;
@@ -753,7 +759,7 @@ function pickSlot(s){slot=s;render();}
 const BARCODE_CDN='./lib/JsBarcode.all.min.js';
 let bcLoaded=false;
 function loadBC(){ bcLoaded=true; return Promise.resolve(!!window.JsBarcode); }
-function toCash(){ return RAW.filter(r=>r.archived&&r.bought&&!r.cashed); }
+function toCash(){ return viewRows().filter(r=>r.archived&&r.bought&&!r.cashed); }
 function updateCashBar(){
   const n=toCash().reduce((a,r)=>a+r.qtyN,0);
   const bar=document.getElementById('cashBar'); const el=document.getElementById('cashN'); if(el)el.textContent=n;
@@ -889,6 +895,7 @@ function toggleScanSrc(){ scanMode=scanMode==='陈列仓'?'小仓':'陈列仓'; 
 async function openScan(){
   addedCount=0; lastCode=''; paused=false; torchOn=false; tray=[]; updateScanTop(); renderTray();
   const tb=document.getElementById('torchBtn'); if(tb)tb.classList.remove('on');
+  const bg=document.getElementById('torchBig'); if(bg)bg.classList.remove('on');
   document.getElementById('confirmCard').classList.remove('show');
   document.getElementById('manualBox').classList.remove('show');
   document.getElementById('scanView').style.display='';
@@ -909,8 +916,14 @@ let torchOn=false;
 async function toggleTorch(){
   if(!h5q||!scanning){ toast('请先开启相机'); return; }
   torchOn=!torchOn;
-  try{ await h5q.applyVideoConstraints({advanced:[{torch:torchOn}]}); document.getElementById('torchBtn').classList.toggle('on',torchOn); if(navigator.vibrate)navigator.vibrate(12); }
-  catch(e){ torchOn=false; document.getElementById('torchBtn').classList.remove('on'); toast('该设备/浏览器不支持补光'); }
+  try{ await h5q.applyVideoConstraints({advanced:[{torch:torchOn}]});
+    var tb=document.getElementById('torchBtn'); if(tb)tb.classList.toggle('on',torchOn);
+    var bg=document.getElementById('torchBig'); if(bg)bg.classList.toggle('on',torchOn);
+    if(navigator.vibrate)navigator.vibrate(12); }
+  catch(e){ torchOn=false;
+    var tb2=document.getElementById('torchBtn'); if(tb2)tb2.classList.remove('on');
+    var bg2=document.getElementById('torchBig'); if(bg2)bg2.classList.remove('on');
+    toast('该设备/浏览器不支持补光'); }
 }
 function onDecode(text){
   if(paused)return;
@@ -1148,6 +1161,9 @@ const DEMO_PRODUCTS=(()=>{
   return out;
 })();
 
+/* 开页强制设置导购姓名：没设过名字先让其设置，确保"只看我的"能生效 */
+/* 开页强制设置导购姓名，确保"只看我的"能生效 */
+if(!OP){ setOperator(); }
 refresh();
 /* 后台温和轮询：让配货员标的「缺货」、配货进度自动浮现；扫码/看详情/确认卡打开时不打扰 */
 async function silentRefresh(){
