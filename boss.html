@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
 <meta name="theme-color" content="#16140F">
 <title>MO · 试衣运营看板</title>
+<script src="./config.js"></script>
+<script src="https://lf-scm-cn.feishucdn.com/lark/op/h5-js-sdk-1.5.34.js"></script>
 <style>
   :root{
     --bg:#F3F1EC; --surface:#FFFFFF; --surface-2:#FAF8F3;
@@ -135,6 +137,9 @@
 
 <script>
 const API=(window.MO_API||'/api/feishu');
+/* 飞书免登（看板：仅确认飞书身份，不按人过滤） */
+function feishuSSO(){ if(!window.h5sdk)return; try{ window.h5sdk.ready(function(){ tt.requestAuthCode({ appId:'cli_aaa001bbc8785cdb', success:function(info){ if(!info||!info.code)return; fetch(API+'?action=login&code='+encodeURIComponent(info.code)).then(function(r){return r.json();}).then(function(d){ if(d&&d.ok&&d.name){ window.__moUser=d.name; } }).catch(function(){}); }, fail:function(){} }); }); }catch(e){} }
+feishuSSO();
 let LIVE=true;
 const ST_DONE='配货完成';
 const OVERDUE_MIN=5;

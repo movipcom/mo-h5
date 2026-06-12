@@ -4,6 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <title>MO · 导购台</title>
+<script src="./config.js"></script>
+<script src="https://lf-scm-cn.feishucdn.com/lark/op/h5-js-sdk-1.5.34.js"></script>
 <style>
   :root{
     --bg:#F3F1EC; --surface:#FFFFFF; --surface-2:#FAF9F5;
@@ -416,6 +418,7 @@
       <div class="co-title">试衣结算 · <span id="coSlot"></span></div>
     </div>
     <div class="co-stat" id="coStat"></div>
+    <div style="padding:8px 16px;font-size:12px;color:var(--ink-3);background:var(--surface);border-bottom:1px solid var(--line);line-height:1.5">只给<b style="color:var(--done)">买了的</b>商品点「已购买」即可，<b>没点的默认算没买</b>，确认结束后自动进归位台。</div>
     <div class="co-list" id="coList"></div>
     <div class="co-foot"><button class="co-done" id="coDone" onclick="commitCheckout()" disabled>确认结束</button></div>
   </div>
@@ -579,6 +582,7 @@ function elapsedMin(r){ return r.ts? Math.floor((Date.now()-r.ts)/60000) : -1; }
 
 let RAW=[], LIVE=false, slot='客户1';
 let OP=''; try{OP=localStorage.getItem('mo_operator')||'';}catch(e){}
+let OP_LOCKED=false;   // 飞书免登成功后锁定身份，禁止手动改名
 let MINE=true;
 /* 彻底隔离：导购只能看到自己的单（导购员字段=OP），看不到其他导购的客户。无切换开关。 */
 function viewRows(){ if(!OP)return []; return RAW.filter(r=>String(r.guidePerson||'').trim()===String(OP).trim()); }
@@ -612,7 +616,35 @@ function cell(v){
 function num(v){const n=parseFloat(String(cell(v)).replace(/[^\d.\-]/g,''));return isNaN(n)?0:n;}
 function meName(){return OP||'';}
 function applyOP(){const el=document.getElementById('meName');if(el)el.textContent=OP||'点此设置姓名';}
-function setOperator(){const n=prompt('请输入你的名字（记录为本单导购）',OP||'');if(n!=null){OP=n.trim();try{localStorage.setItem('mo_operator',OP);}catch(e){}applyOP();render();}}
+function setOperator(){ if(OP_LOCKED){toast('已通过飞书自动识别身份："'+OP+'"，无需手动设置');return;} const n=prompt('请输入你的名字（记录为本单导购）',OP||'');if(n!=null){OP=n.trim();try{localStorage.setItem('mo_operator',OP);}catch(e){}applyOP();render();}}
+
+/* ===== 飞书免登：在飞书客户端内自动获取当前用户身份（不在飞书里则保持手动输入） ===== */
+const FEISHU_APP_ID='cli_aaa001bbc8785cdb';
+function feishuSSO(){
+  if(!window.h5sdk) return;            // 不在飞书里（如 Safari），退回手动
+  try{
+    window.h5sdk.ready(function(){
+      tt.requestAuthCode({
+        appId: FEISHU_APP_ID,
+        success: function(info){
+          if(!info||!info.code) return;
+          fetch(API+'?action=login&code='+encodeURIComponent(info.code))
+            .then(function(r){return r.json();})
+            .then(function(d){
+              if(d&&d.ok&&d.name){
+                OP=d.name; OP_LOCKED=true;
+                try{localStorage.setItem('mo_operator',OP);}catch(e){}
+                applyOP(); render();
+              }
+            })
+            .catch(function(){});
+        },
+        fail: function(){}             // 取码失败：不打扰，保持手动
+      });
+    });
+  }catch(e){}
+}
+feishuSSO();
 function jsq(s){return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
 async function post(body){
   const res=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','X-Proxy-Key':window.__PROXY_KEY||''},body:JSON.stringify(body)});
@@ -694,13 +726,14 @@ function archiveSlot(){ openCheckout(); }   // 「试衣完成」入口
 function openCheckout(){
   const items=allOf(slot);
   if(!items.length){toast('当前没有可结束的试衣单');return;}
-  items.forEach(r=>{ if(!coState[r._id]) coState[r._id]={bought:(r.bought?true:null), returned:!!r.returned}; });
+  items.forEach(r=>{ if(!coState[r._id]) coState[r._id]={bought:!!r.bought, returned:!!r.returned}; });
   document.getElementById('coSlot').textContent=slot;
   document.getElementById('coLayer').classList.add('show');
   renderCheckout();
 }
 function closeCheckout(){ document.getElementById('coLayer').classList.remove('show'); }
 function coSetBought(id,val){ const s=coState[id]; if(!s)return; s.bought=val; if(val)s.returned=false; renderCheckout(); }
+function coToggleBought(id){ const s=coState[id]; if(!s)return; s.bought=(s.bought===true)?false:true; if(s.bought)s.returned=false; renderCheckout(); }
 function coReturnManual(id){ if(coState[id]){coState[id].returned=true; renderCheckout();} }
 function coScanReturn(id){ openReturnScan(id); }
 function markReturned(id){ if(coState[id])coState[id].returned=true; }
@@ -712,33 +745,28 @@ function renderCheckout(){
   const rate=tot?Math.round(buy/tot*100):0;
   document.getElementById('coStat').innerHTML=`<div><div class="big">${buy}/${tot}</div><div class="lb">已购买 / 试衣件数</div></div><div class="rate"><div class="big">${rate}%</div><div class="lb">转化率</div></div>`;
   document.getElementById('coList').innerHTML=items.map(r=>{
-    const s=coState[r._id]||{bought:null};
-    const cls=s.bought===true?'buy':(s.bought===false?'ret':'');
+    const s=coState[r._id]||{bought:false};
+    const cls=s.bought===true?'buy':'';
     const srcTag=r.inHand?`<span class="src-tag hand">陈列</span>`:`<span class="src-tag">小仓</span>`;
     let note='';
-    if(s.bought===false) note=`<div class="co-note">未购买 → 自动进<b>归位台</b>${r.inHand?'（样衣回陈列架）':'（回小仓）'}</div>`;
-    else if(s.bought===true&&r.inHand) note=`<div class="co-note">成交记一笔；实物从小仓出新货，样衣进<b>归位台</b>回陈列架</div>`;
+    if(s.bought===true&&r.inHand) note=`<div class="co-note">成交记一笔；实物从小仓出新货，样衣进<b>归位台</b>回陈列架</div>`;
     return `<div class="co-item ${cls}">
       <div class="co-i-nm">${r.name||'未匹配'}</div>
       <div class="co-i-sub">${srcTag}${r.color?`<span class="swatch" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${colorHex(r.color)};box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)"></span>${r.color}`:''} ${r.spec||''} <span class="skucode">${r.finalCode||'断码'}</span>${r.qtyN>1?' · ×'+r.qtyN:''}</div>
       <div class="co-acts">
-        <button class="co-btn buy ${s.bought===true?'on':''}" onclick='coSetBought("${r._id}",true)'>✓ 已购买</button>
-        <button class="co-btn no ${s.bought===false?'on':''}" onclick='coSetBought("${r._id}",false)'>未购买</button>
+        <button class="co-btn buy ${s.bought===true?'on':''}" onclick='coToggleBought("${r._id}")'>${s.bought===true?'✓ 已购买':'点一下 · 已购买'}</button>
       </div>${note}
     </div>`;
   }).join('');
-  const allOK=items.every(coResolved);
-  const left=items.filter(r=>!coResolved(r)).length;
   const b=document.getElementById('coDone');
-  b.disabled=!allOK; b.textContent=allOK?`确认结束 · 归档（买 ${buy}/${tot}）`:`还有 ${left} 件未标记`;
+  b.disabled=false; b.textContent=`确认结束 · 归档（买 ${buy}/${tot}）`;
 }
 async function commitCheckout(){
   const items=allOf(slot);
-  if(!items.every(coResolved)){toast('还有未标记的件');return;}
   const done=slot;
   const now=Date.now();
-  const ups=items.map(r=>{ const s=coState[r._id]; const f={[FIELD.bought]:s.bought===true,[FIELD.archive]:true};
-    const needRepo = r.inHand || s.bought===false;   // 陈列样衣 或 未购买 → 要归位
+  const ups=items.map(r=>{ const s=coState[r._id]||{bought:false}; const f={[FIELD.bought]:s.bought===true,[FIELD.archive]:true};
+    const needRepo = r.inHand || s.bought!==true;    // 陈列样衣 或 未购买（含没点的）→ 要归位
     if(needRepo) f[FIELD.repoStart]=now;              // 归位计时起点
     return {r, fields:f}; });
   ups.forEach(u=>{ u.r.bought=u.fields[FIELD.bought]; u.r.archived=true; if(u.fields[FIELD.repoStart])u.r.repoStart=u.fields[FIELD.repoStart]; });   // 乐观；归位由归位台处理
@@ -864,7 +892,7 @@ function citem(r){
 /* 扫码 */
 let h5q=null, scanning=false, lastCode='', lastT=0, addedCount=0, actx=null, paused=false;
 let scanMode='小仓';   // 本轮取货来源
-function loadScanLib(){return new Promise(res=>{ if(window.Html5Qrcode)return res(true); var srcs=["./lib/html5-qrcode.min.js","https://cdn.bootcdn.net/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js","https://cdn.staticfile.org/html5-qrcode/2.3.8/html5-qrcode.min.js","https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"]; var i=0; function tryNext(){ if(i>=srcs.length)return res(false); var s=document.createElement("script"); s.src=srcs[i++]; s.onload=function(){ window.Html5Qrcode?res(true):tryNext(); }; s.onerror=tryNext; document.head.appendChild(s); } tryNext(); });}
+function loadScanLib(){return new Promise(res=>{ if(window.Html5Qrcode)return res(true); var s=document.createElement("script"); s.src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.4/html5-qrcode.min.js"; s.integrity="sha512-k/KAe4Yff9EUdYI5/IAHlwUswqeipP+Cp5qnrsUjTPCgl51La2/JhyyjNciztD7mWNKLSXci48m7cctATKfLlQ=="; s.crossOrigin="anonymous"; s.referrerPolicy="no-referrer"; s.onload=function(){ res(!!window.Html5Qrcode); }; s.onerror=function(){ res(false); }; document.head.appendChild(s); });}
 function _tone(freq,dur,vol,type){ try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==='suspended')actx.resume(); const o=actx.createOscillator(),g=actx.createGain(); o.type=type||'square'; o.frequency.value=freq; o.connect(g); g.connect(actx.destination); const t=actx.currentTime; g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(vol||.5,t+.008); g.gain.exponentialRampToValueAtTime(.0001,t+dur); o.start(t); o.stop(t+dur+.02); }catch(e){} }
 /* 扫码成功：清脆高音"嘀"，更像扫码枪 */
 function beep(){ _tone(2300,.09,.6,'square'); if(navigator.vibrate)navigator.vibrate(35); flashTick(true); }
@@ -908,7 +936,9 @@ async function openScan(){
       Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.CODE_39,Html5QrcodeSupportedFormats.ITF,Html5QrcodeSupportedFormats.CODABAR,Html5QrcodeSupportedFormats.QR_CODE
     ] : undefined;
     h5q=new Html5Qrcode('reader',{formatsToSupport:fmts,verbose:false});
-    await h5q.start({facingMode:'environment'},{fps:10,qrbox:{width:260,height:150}},onDecode,()=>{});
+    const _cfg={ fps:15, experimentalFeatures:{useBarCodeDetectorIfSupported:true} };
+    await h5q.start({facingMode:'environment'},_cfg,onDecode,()=>{});
+    try{ const caps=(h5q.getRunningTrackCapabilities&&h5q.getRunningTrackCapabilities())||{}; const adv=[]; if(caps.focusMode&&String(caps.focusMode).indexOf('continuous')>=0)adv.push({focusMode:'continuous'}); if(caps.zoom&&caps.zoom.min!=null){ const z=Math.min(caps.zoom.max||2,Math.max(caps.zoom.min,2)); adv.push({zoom:z}); } const c={}; if(caps.width&&caps.width.max>=1280)c.width={ideal:Math.min(caps.width.max,1920)}; if(caps.height&&caps.height.max>=720)c.height={ideal:Math.min(caps.height.max,1080)}; if(adv.length)c.advanced=adv; if(Object.keys(c).length)await h5q.applyVideoConstraints(c); }catch(e){}
     scanning=true;
   }catch(e){ manualMode('无法打开相机（'+(e.message||e)+'），可手动输入'); }
 }
